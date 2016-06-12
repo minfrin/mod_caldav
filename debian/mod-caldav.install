@@ -1,0 +1,3 @@
+usr/lib/apache2/modules/mod_caldav.so*
+etc/apache2/mods-available/dav_caldav.conf
+etc/apache2/mods-available/dav_caldav.load

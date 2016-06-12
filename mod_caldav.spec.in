@@ -1,0 +1,40 @@
+# being lazy...
+%define _unpackaged_files_terminate_build 0
+#
+Summary:   mod_caldav handler module
+Name:      mod_caldav
+Version:   @VERSION@
+Release:   1
+License:   LGPL
+Group: 	   System Environment/Daemons
+Source:    %{name}-%{version}.tar.gz
+BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
+Requires:  libxml2 httpd mod_dav_acl libical
+BuildRequires: libxml2-devel httpd-devel mod_dav_acl libical-devel
+Prefix: %{_prefix}
+
+%prep
+%setup -q
+
+%post
+
+%build
+CFLAGS="$RPM_OPT_FLAGS" \
+./configure --prefix=%{prefix}
+
+%description
+Apache module to handle caldav 
+
+%install
+rm -fr %{buildroot}
+
+%makeinstall
+
+%clean
+rm -fr %{buildroot}
+
+%files
+%defattr(-,root,root)
+%config(noreplace) %{_sysconfdir}/httpd/conf.d/caldav.conf
+%attr(0755,root,root) %{_libdir}/httpd/modules/mod_caldav.so*
+%doc AUTHORS ChangeLog NEWS README

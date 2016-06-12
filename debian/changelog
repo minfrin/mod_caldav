@@ -1,0 +1,47 @@
+mod-caldav (0.2.0) unstable; urgency=low
+
+  * cleanups
+  * uses some new library APIs from mod_dav_acl (0.2.0)
+  * lintian fixes
+
+ -- Jari Urpalainen <jari@urpalainen.fi>  Fri, 17 Aug 2012 20:17:00 +0300
+
+mod-caldav (0.1.10) unstable; urgency=low
+
+  * some static analysis fixes
+
+ -- Jari Urpalainen <jari.urpalainen@nokia.com>  Fri, 26 Feb 2010 13:58:00 +0200
+
+mod-caldav (0.1.9) unstable; urgency=low
+
+  * conditional <calendar-query> reports based on etags are configurable
+    with new "CalQueryETagResponse" directive
+  * added Apple's ctag property: "getctag" "http://calendarserver.org/ns/"
+    (== not "official" standard)
+  * using icalcomponent_as_ical_string_r() api (no temp buffer stuff from libical)
+
+ -- Jari Urpalainen <jari.urpalainen@nokia.com>  Wed, 22 Apr 2009 13:42:00 +0300
+
+mod-caldav (0.1.8-1) unstable; urgency=low
+
+  * Moved libical to use <http://sourceforge.net/projects/freeassociation/>
+
+ -- Jari Urpalainen <jari.urpalainen@nokia.com>  Tue, 23 Sep 2008 12:42:14 +0300
+
+mod-caldav (0.1.7-1) unstable; urgency=low
+
+  * conditional REPORTs
+
+ -- Jari Urpalainen <jari.urpalainen@nokia.com>  Mon,  8 Jul 2008 10:42:14 +0200
+
+mod-caldav (0.1.6-1) unstable; urgency=low
+
+  * filtering fixes
+
+ -- Jari Urpalainen <jari.urpalainen@nokia.com>  Mon, 11 Feb 2008 10:42:14 +0200
+
+mod-caldav (0.1.5-1) unstable; urgency=low
+
+  * First debian release.
+
+ -- Jari Urpalainen <jari.urpalainen@nokia.com>  Fri, 19 Oct 2007 16:42:14 +0300

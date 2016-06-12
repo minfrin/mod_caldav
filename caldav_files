@@ -1,0 +1,814 @@
+# actual file tests
+
+function count()
+{
+rc="$?"
+cAll=$(($cAll+1))
+if [ "$rc" -eq "0" ]
+then
+  c=$(($c+1))
+  if [ "$debug" -eq "1" ] ; then
+    echo "OK"
+  fi
+else
+  cat $log
+  if [ "$debug" -eq "1" ] ; then
+    echo "failed"
+   # exit -1
+  fi
+fi
+
+if [ "$debug" -eq "1" ]
+then
+  echo --------------------------------------------------------
+fi
+}
+
+
+function deb()
+{
+useragent="$(($cAll+1)) / $1"
+read retag <$etag
+
+if [ "$debug" -eq "1" ]
+then
+  echo --------------------------------------------------------
+  echo "test $(($cAll+1)) $1"
+fi
+}
+
+function h()
+{
+  sed -i s/LOCALHOST/"$hostname"/ $1
+}
+
+cat > freebusy.xml << EOF
+<?xml version="1.0" encoding="utf-8" ?>
+<C:free-busy-query xmlns:C="urn:ietf:params:xml:ns:caldav">
+   <C:time-range start="20060104T140000Z"
+                 end="20060105T220000Z"/>
+</C:free-busy-query>
+EOF
+
+cat > events.ics << EOF
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Example Corp.//CalDAV Client//EN
+BEGIN:VTIMEZONE
+LAST-MODIFIED:20040110T032845Z
+TZID:US/Eastern
+BEGIN:DAYLIGHT
+DTSTART:20000404T020000
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=4
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:20001026T020000
+RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+ATTENDEE;PARTSTAT=ACCEPTED;ROLE=CHAIR:mailto:cyrus@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:lisa@example.com
+DTSTAMP:20060206T001220Z
+DTSTART;TZID=US/Eastern:20060104T100000
+DURATION:PT1H
+LAST-MODIFIED:20060206T001330Z
+ORGANIZER:mailto:cyrus@example.com
+SEQUENCE:1
+STATUS:TENTATIVE
+SUMMARY:Event #3
+UID:DC6C50A017428C5216A2F1CD@example.com
+END:VEVENT
+END:VCALENDAR
+EOF
+
+cat > abcd1.ics << EOF
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Example Corp.//CalDAV Client//EN
+BEGIN:VTIMEZONE
+LAST-MODIFIED:20040110T032845Z
+TZID:US/Eastern
+BEGIN:DAYLIGHT
+DTSTART:20000404T020000
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=4
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:20001026T020000
+RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+DTSTAMP:20060206T001102Z
+DTSTART;TZID=US/Eastern:20060102T100000
+DURATION:PT1H
+SUMMARY:Event #1
+DESCRIPTION:Go Steelers!
+UID:74855313FA803DA593CD579A@example.com
+END:VEVENT
+END:VCALENDAR
+EOF
+
+cat > abcd2.ics << EOF
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Example Corp.//CalDAV Client//EN
+BEGIN:VTIMEZONE
+LAST-MODIFIED:20040110T032845Z
+TZID:US/Eastern
+BEGIN:DAYLIGHT
+DTSTART:20000404T020000
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=4
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:20001026T020000
+RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+DTSTAMP:20060206T001121Z
+DTSTART;TZID=US/Eastern:20060102T120000
+DURATION:PT1H
+RRULE:FREQ=DAILY;COUNT=5
+SUMMARY:Event #2
+UID:00959BC664CA650E933C892C@example.com
+END:VEVENT
+BEGIN:VEVENT
+DTSTAMP:20060206T001121Z
+DTSTART;TZID=US/Eastern:20060104T140000
+DURATION:PT1H
+RECURRENCE-ID;TZID=US/Eastern:20060104T120000
+SUMMARY:Event #2 bis
+UID:00959BC664CA650E933C892C@example.com
+END:VEVENT
+END:VCALENDAR
+EOF
+
+cat > abcd3.ics << EOF
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Example Corp.//CalDAV Client//EN
+BEGIN:VTIMEZONE
+LAST-MODIFIED:20040110T032845Z
+TZID:US/Eastern
+BEGIN:DAYLIGHT
+DTSTART:20000404T020000
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=4
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:20001026T020000
+RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+ATTENDEE;PARTSTAT=ACCEPTED;ROLE=CHAIR:mailto:cyrus@example.com
+ATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:lisa@example.com
+DTSTAMP:20060206T001220Z
+DTSTART;TZID=US/Eastern:20060104T100000
+DURATION:PT1H
+LAST-MODIFIED:20060206T001330Z
+ORGANIZER:mailto:cyrus@example.com
+SEQUENCE:1
+STATUS:TENTATIVE
+SUMMARY:Event #3
+UID:DC6C50A017428C5216A2F1CD@example.com
+END:VEVENT
+END:VCALENDAR
+EOF
+
+cat > abcd4.ics << EOF
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Example Corp.//CalDAV Client//EN
+BEGIN:VTIMEZONE
+LAST-MODIFIED:20040110T032845Z
+TZID:US/Eastern
+BEGIN:DAYLIGHT
+DTSTART:20000404T020000
+RRULE:FREQ=YEARLY;BYDAY=1SU;BYMONTH=4
+TZNAME:EDT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+END:DAYLIGHT
+BEGIN:STANDARD
+DTSTART:20001026T020000
+RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10
+TZNAME:EST
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VTODO
+DTSTAMP:20060205T235300Z
+DUE;TZID=US/Eastern:20060106T120000
+LAST-MODIFIED:20060205T235308Z
+SEQUENCE:1
+STATUS:NEEDS-ACTION
+SUMMARY:Task #2
+UID:E10BA47467C5C69BB74E8720@example.com
+BEGIN:VALARM
+ACTION:AUDIO
+TRIGGER;RELATED=END:-PT10M
+END:VALARM
+END:VTODO
+END:VCALENDAR
+EOF
+
+cat > abcd5.ics << EOF
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Example Corp.//CalDAV Client//EN
+BEGIN:VTODO
+DTSTAMP:20060205T235300Z
+DUE;VALUE=DATE:20060106
+LAST-MODIFIED:20060205T235308Z
+SEQUENCE:1
+STATUS:NEEDS-ACTION
+SUMMARY:Task #2
+UID:E10BA47467C5C69BB74E8720@example.com
+BEGIN:VALARM
+ACTION:AUDIO
+TRIGGER;RELATED=START:-PT10M
+END:VALARM
+END:VTODO
+END:VCALENDAR
+EOF
+
+cat > abcd6.ics << EOF
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Example Corp.//CalDAV Client//EN
+BEGIN:VTODO
+COMPLETED:20051223T122322Z
+DTSTAMP:20060205T235400Z
+DUE;VALUE=DATE:20051225
+LAST-MODIFIED:20060205T235308Z
+SEQUENCE:1
+STATUS:COMPLETED
+SUMMARY:Task #3
+UID:E10BA47467C5C69BB74E8722@example.com
+END:VTODO
+END:VCALENDAR
+EOF
+
+cat > abcd7.ics << EOF
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Example Corp.//CalDAV Client//EN
+BEGIN:VTODO
+DTSTAMP:20060205T235600Z
+DUE;VALUE=DATE:20060101
+LAST-MODIFIED:20060205T235308Z
+SEQUENCE:1
+STATUS:CANCELLED
+SUMMARY:Task #4
+UID:E10BA47467C5C69BB74E8725@example.com
+END:VTODO
+END:VCALENDAR
+EOF
+
+cat > abcd8.ics << EOF
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Example Corp.//CalDAV Client//EN
+BEGIN:VFREEBUSY
+ORGANIZER;CN="Bernard Desruisseaux":mailto:bernard@example.com
+UID:76ef34-54a3d2@example.com
+DTSTAMP:20050530T123421Z
+DTSTART:20060101T000000Z
+DTEND:20060108T000000Z
+FREEBUSY:20050531T230000Z/20050601T010000Z
+FREEBUSY;FBTYPE=BUSY-TENTATIVE:20060102T100000Z/20060102T120000Z
+FREEBUSY:20060103T100000Z/20060103T120000Z
+FREEBUSY:20060104T100000Z/20060104T120000Z
+FREEBUSY;FBTYPE=BUSY-UNAVAILABLE:20060105T100000Z/20060105T120000Z
+FREEBUSY:20060106T100000Z/20060106T120000Z
+END:VFREEBUSY
+END:VCALENDAR
+EOF
+
+cat > propfind_principal.xml << EOF
+<?xml version="1.0" encoding="utf-8" ?>
+<D:propfind xmlns:D="DAV:" xmlns:C="http://calendarserver.org/ns/">
+   <D:prop>
+      <D:resourcetype/>
+      <D:displayname/>
+      <C:getctag/>
+   </D:prop>
+ </D:propfind>
+EOF
+
+cat > cal_query.xml << EOF
+<?xml version="1.0" encoding="utf-8" ?>
+<C:calendar-query xmlns:D="DAV:"
+                 xmlns:C="urn:ietf:params:xml:ns:caldav">
+     <D:prop>
+       <D:getetag/>
+       <C:calendar-data>
+         <C:comp name="VCALENDAR">
+           <C:prop name="VERSION"/>
+           <C:comp name="VEVENT">
+             <C:prop name="SUMMARY"/>
+             <C:prop name="UID"/>
+             <C:prop name="DTSTART"/>
+             <C:prop name="DTEND"/>
+             <C:prop name="DURATION"/>
+             <C:prop name="RRULE"/>
+             <C:prop name="RDATE"/>
+             <C:prop name="EXRULE"/>
+             <C:prop name="EXDATE"/>
+             <C:prop name="RECURRENCE-ID"/>
+           </C:comp>
+           <C:comp name="VTIMEZONE"/>
+         </C:comp>
+       </C:calendar-data>
+     </D:prop>
+     <C:filter>
+       <C:comp-filter name="VCALENDAR">
+         <C:comp-filter name="VEVENT">
+           <C:time-range start="20060104T000000Z"
+                         end="20060105T000000Z"/>
+         </C:comp-filter>
+       </C:comp-filter>
+     </C:filter>
+   </C:calendar-query>
+EOF
+
+cat > cal_query_uid.xml << EOF
+<?xml version="1.0" encoding="utf-8" ?>
+<C:calendar-query xmlns:D="DAV:"
+                 xmlns:C="urn:ietf:params:xml:ns:caldav">
+     <D:prop>
+       <D:getetag/>
+       <C:calendar-data>
+         <C:comp name="VCALENDAR">
+           <C:prop name="X-PROP"/>
+           <C:comp name="VEVENT">
+             <C:prop name="UID"/>
+           </C:comp>
+         </C:comp>
+       </C:calendar-data>
+     </D:prop>
+     <C:filter>
+       <C:comp-filter name="VCALENDAR">
+         <C:comp-filter name="VEVENT">
+         <!--
+           <C:time-range start="20060104T000000Z"
+                         end="20060105T000000Z"/>
+                         -->
+         </C:comp-filter>
+       </C:comp-filter>
+     </C:filter>
+   </C:calendar-query>
+EOF
+
+cat > cal_query_evo.xml << EOF
+<?xml version="1.0" encoding="utf-8" ?>
+<C:calendar-query xmlns:D="DAV:"
+                 xmlns:C="urn:ietf:params:xml:ns:caldav">
+     <D:prop>
+       <D:getetag/>
+       </D:prop>
+     <C:filter>
+       <C:comp-filter name="VCALENDAR">
+         <C:comp-filter name="VEVENT">
+           <C:is-defined/>
+         </C:comp-filter>
+       </C:comp-filter>
+     </C:filter>
+   </C:calendar-query>
+EOF
+
+cat > multiget.xml << EOF
+<?xml version="1.0" encoding="utf-8" ?>
+   <C:calendar-multiget xmlns:D="DAV:"
+                        xmlns:C="urn:ietf:params:xml:ns:caldav">
+     <D:prop>
+       <D:getetag/>
+       <C:calendar-data/>
+     </D:prop>
+     <D:href>abcd1.ics</D:href>
+     <D:href>mget1.ics</D:href>
+   </C:calendar-multiget>
+EOF
+
+cat > text.xml << EOF
+<?xml version="1.0" encoding="utf-8" ?>
+   <C:calendar-query xmlns:C="urn:ietf:params:xml:ns:caldav">
+     <D:prop xmlns:D="DAV:">
+       <D:getetag/>
+       <C:calendar-data/>
+     </D:prop>
+     <C:filter>
+       <C:comp-filter name="VCALENDAR">
+         <C:comp-filter name="VEVENT">
+           <C:prop-filter name="ATTENDEE">
+             <C:text-match collation="i;ascii-casemap"
+              >mailto:lisa@example.com</C:text-match>
+             <C:param-filter name="PARTSTAT">
+               <C:text-match collation="i;ascii-casemap"
+                >NEEDS-ACTION</C:text-match>
+             </C:param-filter>
+           </C:prop-filter>
+         </C:comp-filter>
+       </C:comp-filter>
+     </C:filter>
+   </C:calendar-query>
+EOF
+
+cat > text_negate.xml << EOF
+<?xml version="1.0" encoding="utf-8" ?>
+   <C:calendar-query xmlns:C="urn:ietf:params:xml:ns:caldav">
+     <D:prop xmlns:D="DAV:">
+       <D:getetag/>
+       <C:calendar-data/>
+     </D:prop>
+     <C:filter>
+       <C:comp-filter name="VCALENDAR">
+         <C:comp-filter name="VTODO">
+           <C:prop-filter name="COMPLETED">
+             <C:is-not-defined/>
+           </C:prop-filter>
+           <C:prop-filter name="STATUS">
+             <C:text-match
+                negate-condition="yes">CANCELLED</c:text-match>
+           </C:prop-filter>
+         </C:comp-filter>
+       </C:comp-filter>
+     </C:filter>
+   </C:calendar-query>
+EOF
+
+cat > limit.xml << EOF
+<?xml version="1.0" encoding="utf-8" ?>
+   <C:calendar-query xmlns:D="DAV:"
+                     xmlns:C="urn:ietf:params:xml:ns:caldav">
+     <D:prop>
+       <C:calendar-data>
+         <C:limit-recurrence-set start="20060103T000000Z"
+                                 end="20060105T000000Z"/>
+       </C:calendar-data>
+     </D:prop>
+     <C:filter>
+       <C:comp-filter name="VCALENDAR">
+         <C:comp-filter name="VEVENT">
+           <C:time-range start="20060103T000000Z"
+                         end="20060105T000000Z"/>
+         </C:comp-filter>
+       </C:comp-filter>
+     </C:filter>
+   </C:calendar-query>
+EOF
+
+cat > expand.xml << EOF
+<?xml version="1.0" encoding="utf-8" ?>
+   <C:calendar-query xmlns:D="DAV:"
+                     xmlns:C="urn:ietf:params:xml:ns:caldav">
+     <D:prop>
+       <C:calendar-data>
+         <C:expand start="20060103T000000Z"
+                   end="20060105T000000Z"/>
+       </C:calendar-data>
+     </D:prop>
+     <C:filter>
+       <C:comp-filter name="VCALENDAR">
+         <C:comp-filter name="VEVENT">
+           <C:time-range start="20060103T000000Z"
+                         end="20060105T000000Z"/>
+         </C:comp-filter>
+       </C:comp-filter>
+     </C:filter>
+   </C:calendar-query>
+EOF
+
+cat > limitfb.xml << EOF
+<?xml version="1.0" encoding="utf-8" ?>
+   <C:calendar-query xmlns:D="DAV:"
+                 xmlns:C="urn:ietf:params:xml:ns:caldav">
+     <D:prop>
+       <C:calendar-data>
+         <C:limit-freebusy-set start="20060102T000000Z"
+                                 end="20060103T000000Z"/>
+       </C:calendar-data>
+     </D:prop>
+     <C:filter>
+       <C:comp-filter name="VCALENDAR">
+         <C:comp-filter name="VFREEBUSY">
+           <C:time-range start="20060102T000000Z"
+                           end="20060103T000000Z"/>
+         </C:comp-filter>
+       </C:comp-filter>
+     </C:filter>
+   </C:calendar-query>
+EOF
+
+cat > alarm.xml << EOF
+<?xml version="1.0" encoding="utf-8" ?>
+   <C:calendar-query xmlns:C="urn:ietf:params:xml:ns:caldav">
+     <D:prop xmlns:D="DAV:">
+       <D:getetag/>
+       <C:calendar-data/>
+     </D:prop>
+     <C:filter>
+       <C:comp-filter name="VCALENDAR">
+         <C:comp-filter name="VTODO">
+           <C:comp-filter name="VALARM">
+             <C:time-range start="20060106T160000Z"
+                             end="20060107T180000Z"/>
+           </C:comp-filter>
+         </C:comp-filter>
+       </C:comp-filter>
+     </C:filter>
+   </C:calendar-query>
+EOF
+
+cat > collat.xml << EOF
+<?xml version="1.0" encoding="utf-8" ?>
+   <C:calendar-query xmlns:C="urn:ietf:params:xml:ns:caldav">
+     <D:prop xmlns:D="DAV:">
+       <D:getetag/>
+       <C:calendar-data/>
+     </D:prop>
+     <C:filter>
+       <C:comp-filter name="VCALENDAR">
+         <C:comp-filter name="VEVENT">
+           <C:prop-filter name="UID">
+             <C:text-match collation="i;octet"
+             >DC6C50A017428C5216A2F1CD@example.com</C:text-match>
+           </C:prop-filter>
+         </C:comp-filter>
+       </C:comp-filter>
+     </C:filter>
+   </C:calendar-query>
+EOF
+
+cat > atten.xml << EOF
+<?xml version="1.0" encoding="utf-8" ?>
+   <C:calendar-query xmlns:C="urn:ietf:params:xml:ns:caldav">
+     <D:prop xmlns:D="DAV:">
+       <D:getetag/>
+       <C:calendar-data/>
+     </D:prop>
+     <C:filter>
+       <C:comp-filter name="VCALENDAR">
+         <C:comp-filter name="VEVENT">
+           <C:prop-filter name="ATTENDEE">
+             <C:text-match collation="i;ascii-casemap"
+              >mailto:lisa@example.com</C:text-match>
+             <C:param-filter name="PARTSTAT">
+               <C:text-match collation="i;ascii-casemap"
+                >NEEDS-ACTION</C:text-match>
+             </C:param-filter>
+           </C:prop-filter>
+         </C:comp-filter>
+       </C:comp-filter>
+     </C:filter>
+   </C:calendar-query>
+EOF
+
+cat > events.xml << EOF
+<?xml version="1.0" encoding="utf-8" ?>
+   <C:calendar-query xmlns:C="urn:ietf:params:xml:ns:caldav">
+     <D:prop xmlns:D="DAV:">
+       <D:getetag/>
+       <C:calendar-data/>
+     </D:prop>
+     <C:filter>
+       <C:comp-filter name="VCALENDAR">
+         <C:comp-filter name="VEVENT"/>
+       </C:comp-filter>
+     </C:filter>
+   </C:calendar-query>
+EOF
+
+cat > pending.xml << EOF
+<?xml version="1.0" encoding="utf-8" ?>
+   <C:calendar-query xmlns:C="urn:ietf:params:xml:ns:caldav">
+     <D:prop xmlns:D="DAV:">
+       <D:getetag/>
+       <C:calendar-data/>
+     </D:prop>
+     <C:filter>
+       <C:comp-filter name="VCALENDAR">
+         <C:comp-filter name="VTODO">
+           <C:prop-filter name="COMPLETED">
+             <C:is-not-defined/>
+           </C:prop-filter>
+           <C:prop-filter name="STATUS">
+             <C:text-match
+                negate-condition="yes">CANCELLED</C:text-match>
+           </C:prop-filter>
+         </C:comp-filter>
+       </C:comp-filter>
+     </C:filter>
+   </C:calendar-query>
+EOF
+
+cat > notsup.xml << EOF
+<?xml version="1.0" encoding="utf-8" ?>
+   <C:calendar-query xmlns:C="urn:ietf:params:xml:ns:caldav">
+     <D:prop xmlns:D="DAV:">
+       <D:getetag/>
+       <C:calendar-data/>
+     </D:prop>
+     <C:filter>
+       <C:comp-filter name="VCALENDAR">
+         <C:comp-filter name="VEVENT">
+           <C:prop-filter name="X-ABC-GUID">
+             <C:text-match>ABC</C:text-match>
+           </C:prop-filter>
+         </C:comp-filter>
+       </C:comp-filter>
+     </C:filter>
+   </C:calendar-query>
+EOF
+
+cat > mget.xml << EOF
+<?xml version="1.0" encoding="utf-8" ?>
+   <C:calendar-multiget xmlns:D="DAV:"
+                    xmlns:C="urn:ietf:params:xml:ns:caldav">
+     <D:prop>
+       <D:getetag/>
+       <C:calendar-data/>
+     </D:prop>
+     <D:href>abcd1.ics</D:href>
+     <D:href>mtg1.ics</D:href>
+     <D:href>http://LOCALHOST/caldav/joe/abcd2.ics</D:href>
+     <D:href>http://LOCALHOST/caldav/joe/foo.ics</D:href>
+     <D:href>/caldav/joe/abcd3.ics</D:href>
+   </C:calendar-multiget>
+EOF
+
+h mget.xml
+
+user=admin:password
+path=$uri/caldav
+
+for i in `seq 1 1`;
+do
+
+# 1
+deb "Create a principal calendar collection"
+$cli -v -u "$user" -A "$useragent" -s "$result" -m MKCALENDAR $path/joe/ -r 201 > $log 2>&1
+count
+
+# 2
+deb "Propfind calendar collection"
+$cli -v -u "$user" -A "$useragent" -s "$result" -m PROPFIND -T propfind_principal.xml -c application/xml -X "Depth: 1" $path/joe/ -r 207 > $log 2>&1
+count
+
+# 3
+deb "Put an ical-file"
+$cli -v -u "$user" -A "$useragent" -s "$result" -T abcd1.ics -c text/calendar -e $etag $path/joe/abcd1.ics -r 201 > $log 2>&1
+count
+
+# 4
+deb "Put an ical-file"
+$cli -v -u "$user" -A "$useragent" -s "$result" -T abcd1.ics -c text/calendar -i $retag $path/joe/abcd1.ics -r 200,204  > $log 2>&1
+count
+
+# 5
+deb "Put an ical-file"
+$cli -v -u "$user" -A "$useragent" -s "$result" -T abcd1.ics -c text/calendar $path/joe/abcd1.ics -r 200,204 > $log 2>&1
+count
+
+# 6
+deb "Put an ical-file"
+$cli -v -u "$user" -A "$useragent" -s "$result" -T abcd2.ics -c text/calendar $path/joe/abcd2.ics -r 201 > $log 2>&1
+count
+
+# 7
+deb "Put an ical-file"
+$cli -v -u "$user" -A "$useragent" -s "$result" -T abcd3.ics -c text/calendar $path/joe/abcd3.ics -r 201 > $log 2>&1
+count
+
+# 8
+deb "Put an ical-file"
+$cli -v -u "$user" -A "$useragent" -s "$result" -T abcd4.ics -c text/calendar $path/joe/abcd4.ics -r 201 > $log 2>&1
+count
+
+# 9
+deb "Put an ical-file"
+$cli -v -u "$user" -A "$useragent" -s "$result" -T abcd5.ics -c text/calendar $path/joe/abcd5.ics -r 201 > $log 2>&1
+count
+
+# 10
+deb "Put an ical-file"
+$cli -v -u "$user" -A "$useragent" -s "$result" -T abcd6.ics -c text/calendar $path/joe/abcd6.ics -r 201 > $log 2>&1
+count
+
+# 11
+deb "Put an ical-file"
+$cli -v -u "$user" -A "$useragent" -s "$result" -T abcd7.ics -c text/calendar $path/joe/abcd7.ics -r 201 > $log 2>&1
+count
+
+# 12
+deb "Put an ical-file"
+$cli -v -u "$user" -A "$useragent" -s "$result" -T abcd8.ics -c text/calendar $path/joe/abcd8.ics -r 201 > $log 2>&1
+count
+
+# 13
+deb "cal query"
+$cli -v -u "$user" -A "$useragent" -s "$result" -c application/xml -T cal_query.xml -m REPORT $path/joe/ -X "Depth: 1" -r 207  > $log 2>&1
+count
+
+# 14
+deb "cal query UID"
+$cli -v -u "$user" -A "$useragent" -s "$result" -c application/xml -T cal_query_uid.xml -m REPORT $path/joe/ -X "Depth: 1" -r 207 > $log 2>&1
+count
+
+# 15
+deb "cal query evolution"
+$cli -v -u "$user" -A "$useragent" -s "$result" -c application/xml -T cal_query_evo.xml -m REPORT $path/joe/ -X "Depth: 1" -r 207 > $log 2>&1
+count
+
+# 16
+deb "Report freebusy"
+$cli -v -u "$user" -A "$useragent" -s "$result" -c application/xml -T freebusy.xml -m REPORT $path/joe/ -X "Depth: 1" -r 200 > $log 2>&1
+count
+
+# 17
+deb "Limit recurrence"
+$cli -v -u "$user" -A "$useragent" -s "$result" -c application/xml -T limit.xml -m REPORT $path/joe/ -X "Depth: 1" -r 207 > $log 2>&1
+count
+
+# 18
+deb "Expand recurrence"
+$cli -v -u "$user" -A "$useragent" -s "$result" -c application/xml -T expand.xml -m REPORT $path/joe/ -X "Depth: 1" -r 207 > $log 2>&1
+count
+
+# 19
+deb "Limit freebusy set"
+$cli -v -u "$user" -A "$useragent" -s "$result" -c application/xml -T limitfb.xml -m REPORT $path/joe/ -X "Depth: 1" -r 207 > $log 2>&1
+count
+
+# 20
+deb "TODO Alarm"
+$cli -v -u "$user" -A "$useragent" -s "$result" -c application/xml -T alarm.xml -m REPORT $path/joe/ -X "Depth: 1" -r 207 > $log 2>&1
+count
+
+# 21
+deb "Collation"
+$cli -v -u "$user" -A "$useragent" -s "$result" -c application/xml -T collat.xml -m REPORT $path/joe/ -X "Depth: 1" -r 207 > $log 2>&1
+count
+
+# 22
+deb "Attendee collation"
+$cli -v -u "$user" -A "$useragent" -s "$result" -c application/xml -T atten.xml -m REPORT $path/joe/ -X "Depth: 1" -r 207 > $log 2>&1
+count
+
+# 23
+deb "Events only"
+$cli -v -u "$user" -A "$useragent" -s "$result" -c application/xml -T events.xml -e $etag -m REPORT $path/joe/ -X "Depth: 1" -r 207 > $log 2>&1
+count
+
+# 24
+deb "Events only, conditional report"
+$cli -v -u "$user" -A "$useragent" -s "$result" -c application/xml -T events.xml -n $retag -m REPORT $path/joe/ -X "Depth: 1" -r 304 > $log 2>&1
+count
+
+# 25
+deb "Pending"
+$cli -v -u "$user" -A "$useragent" -s "$result" -c application/xml -T pending.xml -m REPORT $path/joe/ -X "Depth: 1" -r 207 > $log 2>&1
+count
+
+# 26
+deb "Not Supported"
+$cli -v -u "$user" -A "$useragent" -s "$result" -c application/xml -T notsup.xml -m REPORT $path/joe/ -X "Depth: 1" -r 404 > $log 2>&1
+count
+
+# 27
+deb "Multi get"
+$cli -v -u "$user" -A "$useragent" -s "$result" -c application/xml -T mget.xml -m REPORT $path/joe/ -X "Depth: 1" -r 207 > $log 2>&1
+count
+
+# 28
+deb "Delete a collection"
+$cli -v -u "$user" -A "$useragent" -s "$result" -m DELETE $path/joe/ -r 204 > $log 2>&1
+count
+
+done # for loop

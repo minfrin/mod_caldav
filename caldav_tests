@@ -1,0 +1,42 @@
+#!/bin/bash
+
+dir=$PWD
+src=$dir/`dirname $0`/caldav_files
+un=`id -un`
+r=/tmp/caldav-"$un"
+etag=$r/etag
+cAll=0
+c=0
+cli=acl-test-cli
+result=$r/result.txt
+log=$r/log.txt
+
+export NO_PROXY=*
+
+mkdir $r
+cd $r
+
+debug=0
+
+hostname=localhost:8080
+uri=http://"$hostname"
+
+touch $etag
+
+# run actual tests
+. $src
+
+cd $dir
+
+cat $result
+rm -rf $r
+
+echo "************************************"
+echo "* Summary: " $c/$cAll "tests passed"
+echo "************************************"
+if [ $c -eq $cAll ]
+then
+  exit 0
+else
+  exit 1
+fi

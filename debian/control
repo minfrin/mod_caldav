@@ -1,0 +1,23 @@
+Source: mod-caldav
+Priority: optional
+Section: libs
+Maintainer: Jari Urpalainen <jari@urpalainen.fi>
+Build-Depends: debhelper (>= 5.0.0),
+               cdbs (>= 0.4.37),
+               dpkg-dev (>= 1.13.19),
+               pkg-config,
+               libtool,
+               apache2-threaded-dev | apache2-prefork-dev,
+               libxml2-dev,
+               libapr1-dev,
+               libglib2.0-dev,
+               mod-dav-acl-dev (>= 0.2.0),
+               libical-dev
+Standards-Version: 3.9.3
+
+Package: mod-caldav
+Section: libs
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Apache module for CalDAV handling
+ Implements RFC4791

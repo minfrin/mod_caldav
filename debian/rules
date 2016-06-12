@@ -1,0 +1,30 @@
+#!/usr/bin/make -f
+
+include /usr/share/cdbs/1/rules/buildvars.mk
+include /usr/share/cdbs/1/rules/debhelper.mk
+include /usr/share/cdbs/1/class/autotools.mk
+include /usr/share/cdbs/1/rules/utils.mk
+
+ifneq (,$(findstring traces,$(DEB_BUILD_OPTIONS)))
+DEB_CONFIGURE_EXTRA_FLAGS += --enable-debug
+endif
+
+DEB_DH_INSTALL_SOURCEDIR = debian/tmp
+
+DEB_MAKE_INSTALL_TARGET = install DESTDIR=$(CURDIR)/debian/tmp/
+
+DEB_DH_MAKESHLIBS_ARGS_ALL += -V
+
+DEB_CONFIGURE_EXTRA_FLAGS += \
+	--sysconfdir=/etc \
+	--prefix=/usr \
+	--with-apache-module-subdir=apache2/modules \
+	--with-apache-config-subdir=apache2/mods-available \
+	--with-apache-include-subdir=apache2
+
+pre-build:: debian/stamp-autogen
+debian/stamp-autogen:
+	cd $(DEB_SRCDIR) && sh autogen.sh && touch $@
+
+clean::
+	rm -f debian/stamp-autogen

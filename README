@@ -1,0 +1,53 @@
+mod_caldav:
+-----------
+-this is an Apache module implementation of RFC 4791, i.e. adding CalDAV
+support to WebDAV
+-depends on mod_dav_acl <http://sourceforge.net/projects/moddavacl/>,
+which implements RFC 3744 also as an Apache module
+-uses libical for iCalendar manipulations
+<http://sourceforge.net/projects/freeassociation/>
+Before release 0.1.8 the fork of libical in Evolution Data Server (EDS) was
+used. (this module does not use other components of it)
+-included some patches to EDS: e.g. some heap bug fixes in libical and also
+client side fixes for using Evolution as a calendar client: caches timezone
+info for scheduled events, forward proxy enabled, etc. The latest svn version
+of eds seems to be quite reasonable now, however. There are no patches to libical
+of <http://sourceforge.net/projects/freeassociation/> version (since it already
+has these fixes).
+
+Configuration:
+--------------
+-must be loaded (dlopen) after mod_dav_acl and mod_dav
+-once the module installs, some directives from mod_dav_acl are needed:
+
+DAVETagResponse on
+-enable strong ETag responses
+
+DAVACL on
+-enable ACL handling
+
+and e.g. setting (although it is not used anyway by the current implementation)
+MaxAttendeesPerInstance   10000
+
+in debian:"sudo a2enmod dav_caldav" enables module loading and basic
+configuration
+
+Install:
+--------
+-the module is debianized so dpkg-buildpackage should work at least in ubuntu
+-otherwise "standard" ./configure && make && make install. You may need to run
+autogen.sh to generate a proper ./configure etc.
+
+Tests:
+------
+-once the module is successfully compiled and loaded, tests can be run with
+make check or by running ./caldav_tests. You need to have admin (digest)
+account and /xxx/caldav directory must be available and accessible by apache
+
+Performance:
+------------
+-enabling acl handling certainly decreases throughput. Especially after
+each PUT, the owner of a resource is stored. Current mod_dav uses db4 database
+for property storings and it seems to be quite slow, so PUT performance may
+degrade a lot. You can however, enable owner storage onto extended attributes
+which is much faster.

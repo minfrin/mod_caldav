@@ -1,0 +1,58 @@
+23.09.2008 Jari Urpalainen
+	* caldav_ical.[ch], configure.in:
+	-changed to use the mainstream libical from <http://sourceforge.net/projects/freeassociation/>
+	-removed eds-libical hacks
+
+08.07.2008 Jari Urpalainen
+	* caldav.c:
+	-added conditional report responses based on a collection ETag:
+	If-None-Match: "abcd2333" (with the same ETag) is reponded by 304 Not Modified
+
+06.06.2008 Jari Urpalainen
+	* caldav_ical.[ch]:
+	-added hacks for eds-libical abi changes
+	-fixed wrong search order in strstr
+
+19.02.2008 Jari Urpalainen
+	* caldav.c:
+	-fixed Depth header handling
+	-fixed body reading with multiple threads
+	
+07.08.2007 Jari Urpalainen
+	* caldav.c:
+	-fixed a bug when storing resourcetype property with mkcalendar method
+
+04.07.2007 Jari Urpalainen
+	* configure.in:
+	-libical from evolution-data-server may be replaced with another fork.
+	(DEPS_LIBICAL_LIBS=-lical DEPS_LIBICAL_CFLAGS=I/xxxx in configure)
+	(caveat: some tests may fail, however ...)	
+	* test-cli.c:
+	-added libcurl based small http client for testing purposes
+	* caldav.c:
+	-fixed a memory leak in filtering function
+
+29.03.2007 Jari Urpalainen
+        * caldav_files:
+        -added more tests from rfc4791
+	* caldav_ical.c:
+	-fixed due evaluation in vtodos
+	* caldav.c:
+	-fixed multiget with full uris
+	* testical.c:
+	-added for testing simple report requests over an iCalendar file
+
+28.03.2007 Jari Urpalainen
+	* caldav_ical.c:
+	-memory bug in expanded recurrence set fixed
+	-recurring freebusy report fix 	
+	
+27.03.2007 Jari Urpalainen	
+	* caldav_ical.c:
+	-in free_busy_query report return utc times
+	* caldav.c:
+	-in free_busy_query report return also mandatory dtstamp
+
+26.03.2007 Jari Urpalainen
+	* Initial release 0.1.0
+	

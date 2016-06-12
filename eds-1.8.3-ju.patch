@@ -1,0 +1,1268 @@
+diff -Naur evolution-data-server-1.8.3/calendar/backends/caldav/e-cal-backend-caldav.c evolution-data-server-1.8.3-ju/calendar/backends/caldav/e-cal-backend-caldav.c
+--- evolution-data-server-1.8.3/calendar/backends/caldav/e-cal-backend-caldav.c	2007-01-29 11:44:38.000000000 +0200
++++ evolution-data-server-1.8.3-ju/calendar/backends/caldav/e-cal-backend-caldav.c	2007-03-14 09:13:22.000000000 +0200
+@@ -549,16 +549,21 @@
+ {
+ 	gboolean res;
+ 	guint    ret;
++	char *str;
+ 	
+ 	
+ 	if (result == NULL || result->type != XPATH_STRING) {
+ 		return 0;	
+ 	}
++	/* new libsoup picky about correct line endings */ 
++	str = g_strdup_printf("%s\r\n", 
++	                      result->stringval ? (char *)result->stringval : "");  
+ 	
+-	res = soup_headers_parse_status_line ((char *) result->stringval, 
++	res = soup_headers_parse_status_line (str, 
+ 					      NULL,
+ 					      &ret,
+ 					      NULL);
++	g_free(str);					      
+ 	
+ 	if (res != TRUE) {
+ 		ret = 0;	
+@@ -603,6 +608,8 @@
+ 	guint status;
+ 
+ 	char *cdata;
++	
++	ECalComponent *comp;
+ };
+ 
+ static void
+@@ -625,10 +632,13 @@
+ 	xmlDocPtr          doc;
+ 	int                i, n;
+ 	gboolean           res;
++	const SoupUri 	  *uri_base;
+ 
+ 	g_return_val_if_fail (soup_message != NULL, FALSE);
+ 	g_return_val_if_fail (objs != NULL || len != NULL, FALSE);
+ 
++        uri_base = soup_message_get_uri(soup_message);
++
+ 	res = TRUE;
+ 	doc = xmlReadMemory (soup_message->response.body, 
+ 			     soup_message->response.length, 
+@@ -664,13 +674,23 @@
+ 	for (i = 0; i < n;i++) {
+ 		CalDAVObject *object;
+ 		xmlXPathObjectPtr xpres;
+-		
++ 	        SoupUri *uri;
++
+ 		object = *objs + i;
+ 		/* see if we got a status child in the response element */
+ 
+ 		xpres = xpath_eval (xpctx, XPATH_HREF, i + 1);
+ 		object->href = xp_object_get_string (xpres);
+ 
++		/* test if uri is relative */
++                uri = soup_uri_new(object->href);
++                if (uri == NULL) {
++                	uri = soup_uri_new_with_base(uri_base, object->href);
++                	g_free (object->href);
++                	object->href = soup_uri_to_string(uri, FALSE);
++                }
++               	soup_uri_free(uri);
++ 
+ 		xpres = xpath_eval (xpctx,XPATH_STATUS , i + 1);
+ 		object->status = xp_object_get_status (xpres);
+ 
+@@ -717,12 +737,8 @@
+ 	cbdav = E_CAL_BACKEND_CALDAV (data);	
+ 	priv = E_CAL_BACKEND_CALDAV_GET_PRIVATE (cbdav);
+ 
+-	*username = priv->username;
+-	*password = priv->password;
+-	
+-	priv->username = NULL;
+-	priv->password = NULL;
+-
++	*username = g_strdup(priv->username);
++	*password = g_strdup(priv->password);
+ }
+ 
+ static void
+@@ -740,14 +756,88 @@
+ 	cbdav = E_CAL_BACKEND_CALDAV (data);	
+ 	priv = E_CAL_BACKEND_CALDAV_GET_PRIVATE (cbdav);
+ 
+-	*username = priv->username;
+-	*password = priv->password;
+-	
+-	priv->username = NULL;
+-	priv->password = NULL;
++        if (priv->need_auth) {
++  		*username = g_strdup(priv->username);
++		*password = g_strdup(priv->password);
++		priv->need_auth = FALSE;
++	} else {
++ 		*username = NULL;
++		*password = NULL;
++  		/* notification for the client to re-auth ??? */
++	}
+ }
+ 
+ 
++/* ************************************************************************* */
++/* proxy settings */
++
++static gint 
++caldav_ignore_host(gconstpointer a, gconstpointer b)
++{
++	gchar *hostname = (gchar*)a, 
++	      *ignore = (gchar*)b;
++ 
++	if (hostname && ignore)
++	  return strcmp(hostname, ignore);
++        return -1;
++}
++
++static void 
++caldav_set_session_proxy(ECalBackendCalDAVPrivate *priv)
++{
++	GConfClient *conf_client;
++	SoupUri *uri_base;
++ 	
++ 	if (priv->session == NULL)
++ 		return;
++ 		
++	uri_base = soup_uri_new (priv->uri);
++	if (uri_base == NULL)
++		return;
++		
++	/* set the outbound HTTP proxy, if configuration is set to do so */
++	conf_client = gconf_client_get_default ();
++	if (gconf_client_get_bool (conf_client, "/system/http_proxy/use_http_proxy", NULL)) {
++		char *server, *proxy_uri;
++		int port;
++ 		GSList *ignore = gconf_client_get_list (conf_client, 
++  							"/system/http_proxy/ignore_hosts",
++  		                                	GCONF_VALUE_STRING, NULL); 
++  		if (ignore == NULL || 
++  		    g_slist_find_custom(ignore, uri_base->host, caldav_ignore_host) == NULL) {
++  			server = gconf_client_get_string (conf_client, "/system/http_proxy/host", NULL);
++			port = gconf_client_get_int (conf_client, "/system/http_proxy/port", NULL);
++
++			if (server && server[0]) {
++				SoupUri *suri;
++				if (gconf_client_get_bool (conf_client, "/system/http_proxy/use_authentication", NULL)) {
++					char *user, *password;
++					user = gconf_client_get_string (conf_client,
++									"/system/http_proxy/authentication_user",
++									NULL);
++					password = gconf_client_get_string (conf_client,
++									    "/system/http_proxy/authentication_password",
++									    NULL);
++
++					proxy_uri = g_strdup_printf("http://%s:%s@%s:%d", user, password, server, port);
++					g_free (user);
++					g_free (password);
++				} else
++					proxy_uri = g_strdup_printf ("http://%s:%d", server, port);
++
++				suri = soup_uri_new (proxy_uri);
++				g_object_set (G_OBJECT (priv->session), SOUP_SESSION_PROXY_URI, suri, NULL);
++
++				soup_uri_free (suri);
++				g_free (server);
++				g_free (proxy_uri);
++			}
++		}
++ 		g_slist_foreach(ignore, (GFunc) g_free, NULL);
++		g_slist_free(ignore);
++	}
++	soup_uri_free (uri_base);
++}
+ 
+ 
+ /* ************************************************************************* */
+@@ -863,10 +953,15 @@
+ 	
+ 	sn = xmlNewTextChild (node, nscd, (xmlChar *) "comp-filter", NULL);
+ 	xmlSetProp (sn, (xmlChar *) "name", (xmlChar *) "VEVENT");
+-	xmlNewTextChild (sn, nscd, (xmlChar *) "is-defined", NULL);
+-	/* ^^^ add timerange for performance?  */
+ 	
++	#if 0
++	/* this is not in the spec and not needed as it works without it as well, 
++	   so removing it */
++	xmlNewTextChild (sn, nscd, (xmlChar *) "is-defined", NULL);
++	#endif
+ 	
++	/* ^^^ add timerange for performance?  */
++		
+ 	buf = xmlAllocOutputBuffer (NULL);
+ 	xmlNodeDumpOutput (buf, doc, root, 0, 1, NULL);
+ 	xmlOutputBufferFlush (buf);
+@@ -878,13 +973,15 @@
+ 	soup_message_add_header (message->request_headers, 
+ 				 "Depth", "1");
+ 
++        /* application/xml is the preferred mime-type */ 
+ 	soup_message_set_request (message, 
+-				  "text/xml",
++				  "application/xml",
+ 				  SOUP_BUFFER_USER_OWNED,
+ 				  (char *) buf->buffer->content,
+ 				  buf->buffer->use);
+ 
+ 	d(setup_debug (message);)
++	
+ 	/* Send the request now */
+ 	soup_session_send_message (priv->session, message);
+ 	
+@@ -893,13 +990,17 @@
+ 	xmlFreeDoc (doc);
+ 
+ 	/* Check the result */
+-	if (message->status_code != 207) {
+-		g_warning ("Sever did not response with 207\n");
+-		return FALSE;
+-	}
++	if (message->status_code == 404) {
++		result = TRUE;
++		*objs = NULL;
++		*len = 0;
+ 	
+-	/* Parse the response body */
+-	result = parse_report_response (message, objs, len);
++	} else if (message->status_code != 207) {
++		g_warning ("Server did not response with 207\n");
++		result = FALSE;
++	} else
++		/* Parse the response body */
++		result = parse_report_response (message, objs, len);
+ 
+ 	g_object_unref (message);
+ 	return result;
+@@ -924,6 +1025,7 @@
+ 	soup_message_add_header (message->request_headers, 
+ 				 "User-Agent", "Evolution/" VERSION);
+ 
++	
+ 	d(setup_debug (message);)
+ 	soup_session_send_message (priv->session, message);
+ 	
+@@ -960,6 +1062,7 @@
+ 	return result;
+ }
+ 
++
+ static ECalBackendSyncStatus
+ caldav_server_put_object (ECalBackendCalDAV *cbdav, CalDAVObject *object)
+ {
+@@ -973,7 +1076,7 @@
+ 	hdr    = NULL;
+ 	
+ 	g_assert (object != NULL && object->cdata != NULL);
+-
++      
+ 	message = soup_message_new (SOUP_METHOD_PUT, object->href);
+ 	
+ 	soup_message_add_header (message->request_headers, 
+@@ -1052,6 +1156,7 @@
+ 
+ 	return result;
+ }
++
+ 	
+ /* ************************************************************************* */
+ /* Synchronization foo */
+@@ -1142,6 +1247,7 @@
+ 				   g_str_equal (_tag1 != NULL ? _tag1 : "",  \
+ 					        _tag2 != NULL ? _tag2 : "")) 
+ 
++#if 0
+ static void
+ synchronize_cache (ECalBackendCalDAV *cbdav)
+ {
+@@ -1243,6 +1349,107 @@
+ 	g_list_free (cobjs);
+ 	
+ }
++#else
++
++
++static void
++synchronize_cache (ECalBackendCalDAV *cbdav)
++{
++	ECalBackendCalDAVPrivate *priv;
++	ECalBackendCache         *bcache;
++	CalDAVObject             *sobjs;
++	CalDAVObject             *object;
++	GHashTable               *hindex;
++	GList                    *cobjs;
++	GList                    *citer;
++	gboolean		  res;
++	int			  len;
++	int                       i;
++	
++	priv   = E_CAL_BACKEND_CALDAV_GET_PRIVATE (cbdav);	
++	bcache = priv->cache;
++	len    = 0;
++	sobjs  = NULL;
++	
++	res = caldav_server_list_objects (cbdav, &sobjs, &len);
++	
++	if (res == FALSE) {
++		/* FIXME: bloek! */
++		g_warning ("Could not synch server BLehh!");
++		return;
++	}
++	hindex = g_hash_table_new (g_str_hash, g_str_equal);
++
++        for (i = 0, object = sobjs; i < len; i++, object++) 
++	 	g_hash_table_insert (hindex, (gpointer) object->href, object);
++ 
++	cobjs = e_cal_backend_cache_get_components (bcache);
++
++	/* look for removed components and add appropriate links 
++	   do this in two phases because of e.g. renaming of a file name
++	   i.e. removal doesn't appear after adding 
++	*/	
++	for (citer = cobjs; citer; citer = g_list_next (citer)) {
++		ECalComponent *ccomp = E_CAL_COMPONENT (citer->data);
++		const char *href;	
++	     
++		href = e_cal_component_get_href (ccomp);
++		
++		if (href == NULL) {
++			g_warning ("href of object NULL :(");
++			continue;
++		}
++
++		object = g_hash_table_lookup (hindex, href);
++
++		if (object != NULL) {
++			object->comp = ccomp;
++		} else {                 
++               		const char *uid;
++		
++			e_cal_component_get_uid (ccomp, &uid);
++
++			if (e_cal_backend_cache_remove_component (bcache, uid, NULL) && 
++			    priv->report_changes) {
++				char *str = e_cal_component_get_as_string (ccomp);
++				ECalComponentId *id = e_cal_component_get_id (ccomp);
++			       	
++				e_cal_backend_notify_object_removed (E_CAL_BACKEND (cbdav), 
++								     id, str, NULL);
++				e_cal_component_free_id (id);
++				g_free (str);
++			}
++			g_object_unref (ccomp);
++                }           
++	}
++  	
++	/* see if we have to upate or add some objects */
++	for (i = 0, object = sobjs; i < len; i++, object++) {
++		const char *etag = NULL;
++
++		if (object->status != 200) {
++			/* just continue here, so that the object
++			   doesn't show up of change
++			   403 response ??? is one possibility
++			 */
++			caldav_object_free (object, FALSE);
++			continue;
++		}
++		
++		if (object->comp != NULL) 
++			etag = e_cal_component_get_etag (object->comp);	
++
++		if (!etag || !etags_match (etag, object->etag)) 
++			synchronize_object (cbdav, object, object->comp);
++
++		caldav_object_free (object, FALSE);
++	}
++
++	g_hash_table_destroy (hindex);
++	g_list_free (cobjs);
++}
++#endif
++
+ 
+ /* ************************************************************************* */
+ static gpointer 
+@@ -1352,6 +1559,21 @@
+ 	return GNOME_Evolution_Calendar_Success;
+ }
+ 
++/* remove username part */
++static
++char * caldav_set_href(const char* href)
++{
++	SoupUri *uri = soup_uri_new(href);
++        if (uri == NULL) 
++        	return g_strdup (href);
++        	
++        g_free (uri->user), uri->user = NULL;
++	href = soup_uri_to_string(uri, FALSE);
++        
++        soup_uri_free(uri);
++        return (char *)href;
++}
++
+ static ECalBackendSyncStatus
+ initialize_backend (ECalBackendCalDAV *cbdav)
+ {	
+@@ -1360,7 +1582,7 @@
+ 	ESource                  *source;
+ 	GThread			 *slave;
+ 	const char		 *os_val;
+-	const char               *uri;
++	char               	 *uri;
+ 	
+ 	priv  = E_CAL_BACKEND_CALDAV_GET_PRIVATE (cbdav);
+ 	
+@@ -1382,6 +1604,8 @@
+ 	os_val = e_source_get_property(source, "ssl");
+ 	uri = e_cal_backend_get_uri (E_CAL_BACKEND (cbdav));
+ 
++        uri = caldav_set_href(uri);
++
+ 	if (g_str_has_prefix (uri, "caldav://")) {
+ 		if (os_val && os_val[0] == '1') {
+ 			priv->uri = g_strconcat ("https://", uri + 9, NULL);
+@@ -1391,6 +1615,7 @@
+ 	} else {		
+ 		priv->uri = g_strdup (uri);
+ 	} 
++	g_free(uri);
+ 		
+ 	if (priv->cache == NULL) {
+ 		priv->cache = e_cal_backend_cache_new (priv->uri, E_CAL_SOURCE_TYPE_EVENT);
+@@ -1417,7 +1642,6 @@
+ 	return result;
+ }
+ 
+-
+ static ECalBackendSyncStatus
+ caldav_do_open (ECalBackendSync *backend, 
+ 		EDataCal        *cal, 
+@@ -1437,7 +1661,7 @@
+ 	g_mutex_lock (priv->lock);
+ 	
+ 	if (priv->loaded != TRUE) {
+-		priv->ostatus = initialize_backend (cbdav);
++ 		priv->ostatus = initialize_backend (cbdav);
+ 	}	
+ 	
+ 	if (priv->ostatus != GNOME_Evolution_Calendar_Success) {
+@@ -1451,10 +1675,10 @@
+ 			g_mutex_unlock (priv->lock);
+ 			return GNOME_Evolution_Calendar_AuthenticationRequired;
+ 		}
+-		
++		g_free(priv->username);
++		g_free(priv->password);
+ 		priv->username = g_strdup (username);
+ 		priv->password = g_strdup (password);
+-		priv->need_auth = FALSE;
+ 	}
+ 	
+ 	if (! priv->do_offline && priv->mode == CAL_MODE_LOCAL) {
+@@ -1463,6 +1687,9 @@
+ 	}
+ 
+ 	if (priv->mode == CAL_MODE_REMOTE) {
++		/* set forward proxy */
++		caldav_set_session_proxy(priv);
++	
+ 		status = caldav_server_open_calendar (cbdav);
+ 
+ 		if (status == GNOME_Evolution_Calendar_Success) {
+@@ -1515,6 +1742,66 @@
+ }
+ 
+ 
++/* callback for icalcomponent_foreach_tzid */
++typedef struct {
++	icalcomponent *vcal_comp;
++	ECalBackendCalDAVPrivate *priv;
++	int f;
++} tz_cb_data;
++
++
++static void
++add_timezone_cb (icalparameter *param, void *data)
++{
++	const char *tzid;
++	icalcomponent *vtz_comp = NULL;
++	tz_cb_data *f_data = (tz_cb_data *) data;
++	icaltimezone *tz;
++
++	tzid = icalparameter_get_tzid (param);
++	if (!tzid)
++		return;
++	
++	/* look for timezone from local db */
++	tz = icaltimezone_get_builtin_timezone_from_tzid (tzid);
++
++	/* look from cache if not in local db ? */
++	if (!tz)
++		tz = e_cal_backend_cache_get_timezone (f_data->priv->cache, tzid);
++	
++	if (tz)
++	 	vtz_comp = icaltimezone_get_component (tz);
++	
++	/* add vtimezone component */
++	if (vtz_comp) {
++		icalcomponent_add_component (f_data->vcal_comp,
++					     icalcomponent_new_clone (vtz_comp));
++		f_data->f = TRUE;
++	}
++}
++
++
++static void
++add_timezones_for_component (ECalBackendCalDAVPrivate *priv,
++			     icalcomponent *vcal_comp,
++		             icalcomponent *icalcomp)
++{
++	tz_cb_data f_data = { 0 };
++
++	g_return_if_fail (vcal_comp != NULL);
++	g_return_if_fail (icalcomp != NULL);
++	
++	f_data.priv = priv;
++	f_data.vcal_comp = vcal_comp;
++	f_data.f = FALSE;
++	icalcomponent_foreach_tzid (icalcomp, add_timezone_cb, &f_data);
++	
++	if (!f_data.f) 
++		e_cal_util_add_timezones_from_component(vcal_comp,
++							icalcomp);
++}
++
++
+ static char *
+ pack_cobj (ECalBackendCalDAV *cbdav, ECalComponent *ecomp) 
+ {
+@@ -1532,9 +1819,11 @@
+ 
+ 		calcomp = e_cal_util_new_top_level ();
+ 		cclone = icalcomponent_new_clone (icomp);
++		
++		add_timezones_for_component (priv, calcomp, cclone);
++
+ 		icalcomponent_add_component (calcomp, cclone);
+-		e_cal_util_add_timezones_from_component(calcomp,
+-							cclone);
++
+ 	} else {
+ 		calcomp = icalcomponent_new_clone (icomp);
+ 	}
+@@ -1668,7 +1957,7 @@
+ 
+ 		status = caldav_server_put_object (cbdav, &object);
+ 
+-		e_cal_component_set_href (comp, object.href);
++   		e_cal_component_set_href (comp, object.href);
+ 		e_cal_component_set_etag (comp, object.etag);
+ 		caldav_object_free (&object, FALSE);
+ 		
+@@ -1868,7 +2157,7 @@
+ 				href = e_cal_component_get_href (ccomp);
+ 				etag = e_cal_component_get_etag (ccomp);
+ 				
+-				object.href  = g_strdup (href);
++				object.href  = g_strdup (href); 
+ 				object.etag  = g_strdup (etag);
+ 
+ 			} else {
+@@ -1877,6 +2166,7 @@
+ 			
+ 			object.cdata = pack_cobj (cbdav, ecomp);
+ 			status = caldav_server_put_object (cbdav, &object);
++			e_cal_component_set_href (ecomp, object.href);
+ 			e_cal_component_set_etag (ecomp, object.etag);
+ 			caldav_object_free (&object, FALSE);
+ 		} else {
+@@ -1978,6 +2268,96 @@
+ }
+ 
+ static ECalBackendSyncStatus
++caldav_add_timezone (ECalBackendSync *backend, 
++		     EDataCal        *cal,
++		     const char      *tzobj)
++{
++#if 0
++	/* FIXME: implement me! */
++	g_warning ("function not implemented %s", G_STRFUNC);
++	return GNOME_Evolution_Calendar_Success;	
++#else
++	ECalBackendCalDAV        *cbdav;
++	ECalBackendCalDAVPrivate *priv;
++	icalcomponent *tz_comp;
++	icaltimezone *zone;
++
++	cbdav = E_CAL_BACKEND_CALDAV (backend);
++	priv  = E_CAL_BACKEND_CALDAV_GET_PRIVATE (cbdav);
++
++	g_return_val_if_fail (tzobj != NULL, GNOME_Evolution_Calendar_OtherError);
++
++	tz_comp = icalparser_parse_string (tzobj);
++	if (!tz_comp)
++		return GNOME_Evolution_Calendar_InvalidObject;
++
++	if (icalcomponent_isa (tz_comp) != ICAL_VTIMEZONE_COMPONENT) {
++		icalcomponent_free (tz_comp);
++		return GNOME_Evolution_Calendar_InvalidObject;
++	}
++
++	zone = icaltimezone_new ();
++	icaltimezone_set_component (zone, tz_comp);
++
++	g_mutex_lock (priv->lock);
++	e_cal_backend_cache_put_timezone (priv->cache, zone);
++	g_mutex_unlock (priv->lock);
++
++	return GNOME_Evolution_Calendar_Success;
++#endif
++}
++
++static ECalBackendSyncStatus
++caldav_get_timezone (ECalBackendSync  *backend, 
++		     EDataCal         *cal,
++		     const char       *tzid,
++		     char            **object)
++{
++	ECalBackendCalDAV        *cbdav;
++	ECalBackendCalDAVPrivate *priv;
++	const icaltimezone       *zone;
++	icalcomponent            *icalcomp;
++
++	cbdav = E_CAL_BACKEND_CALDAV (backend);
++	priv  = E_CAL_BACKEND_CALDAV_GET_PRIVATE (cbdav);
++
++	g_return_val_if_fail (tzid, GNOME_Evolution_Calendar_ObjectNotFound);
++
++	/* first try to get the timezone from the cache */
++	g_mutex_lock (priv->lock);
++	zone = e_cal_backend_cache_get_timezone (priv->cache, tzid);
++	g_mutex_unlock (priv->lock);
++
++	if (!zone) {
++		zone = icaltimezone_get_builtin_timezone_from_tzid (tzid);
++		if (!zone) { 
++			return GNOME_Evolution_Calendar_ObjectNotFound;
++		}
++	}
++
++	icalcomp = icaltimezone_get_component ((icaltimezone *) zone);
++	
++	if (!icalcomp) {
++		return GNOME_Evolution_Calendar_InvalidObject;
++	}
++		
++	*object = g_strdup (icalcomponent_as_ical_string (icalcomp));
++
++	return GNOME_Evolution_Calendar_Success;
++}
++
++static ECalBackendSyncStatus
++caldav_set_default_zone (ECalBackendSync *backend, 
++			     EDataCal        *cal,
++			     const char      *tzobj)
++{
++	/* FIXME: implement me! */
++	g_warning ("function not implemented %s", G_STRFUNC);
++	return GNOME_Evolution_Calendar_Success;	
++}
++
++
++static ECalBackendSyncStatus
+ caldav_receive_objects (ECalBackendSync *backend,
+ 			EDataCal        *cal, 
+ 			const char      *calobj)
+@@ -2014,14 +2394,42 @@
+ 	/* Extract optional timezone compnents */
+ 	kind = ICAL_VTIMEZONE_COMPONENT;
+ 	status = extract_objects (icomp, kind, &timezones);
++
++	/*   */
++	g_mutex_lock (priv->lock);
+ 	
+ 	if (status == GNOME_Evolution_Calendar_Success) {
+ 		/* FIXME: */
+ 		/* Do something usefull with the timezone */
++
++		/* add non-existing timezone references to backend cache
++	   	   this may fail miserably if tzid-contents differ
++		 */
++        	for (iter = timezones; iter; iter = iter->next) {
++		        icalcomponent *vtz_comp = (icalcomponent *) iter->data;
++		 	icalproperty *prop;
++   			const char *tzid;
++
++			/* Get the TZID property of the first VTIMEZONE. */
++    			prop = icalcomponent_get_first_property (vtz_comp, ICAL_TZID_PROPERTY);
++    			if (!prop)
++    				continue;
++	
++			tzid = icalproperty_get_tzid (prop);
++    			if (!tzid)
++				continue;
++		
++			if (icaltimezone_get_builtin_timezone_from_tzid (tzid) == NULL) {
++				icaltimezone *zone;
++
++				zone = icaltimezone_new ();
++				icaltimezone_set_component (zone, icalcomponent_new_clone (vtz_comp));
++				e_cal_backend_cache_put_timezone (priv->cache, (const icaltimezone *) zone);
++
++				icaltimezone_free (zone, 1);
++			}
++		}
+ 	}
+-	
+-	/*   */
+-	g_mutex_lock (priv->lock);
+ 
+ 	status = check_state (cbdav, &online);
+ 
+@@ -2121,64 +2529,6 @@
+ 	return GNOME_Evolution_Calendar_Success;
+ }
+ 
+-static ECalBackendSyncStatus
+-caldav_get_timezone (ECalBackendSync  *backend, 
+-		     EDataCal         *cal,
+-		     const char       *tzid,
+-		     char            **object)
+-{
+-	ECalBackendCalDAV        *cbdav;
+-	ECalBackendCalDAVPrivate *priv;
+-	const icaltimezone       *zone;
+-	icalcomponent            *icalcomp;
+-
+-	cbdav = E_CAL_BACKEND_CALDAV (backend);
+-	priv  = E_CAL_BACKEND_CALDAV_GET_PRIVATE (cbdav);
+-
+-	g_return_val_if_fail (tzid, GNOME_Evolution_Calendar_ObjectNotFound);
+-
+-	/* first try to get the timezone from the cache */
+-	g_mutex_lock (priv->lock);
+-	zone = e_cal_backend_cache_get_timezone (priv->cache, tzid);
+-	g_mutex_unlock (priv->lock);
+-
+-	if (!zone) {
+-		zone = icaltimezone_get_builtin_timezone_from_tzid (tzid);
+-		if (!zone) { 
+-			return GNOME_Evolution_Calendar_ObjectNotFound;
+-		}
+-	}
+-
+-	icalcomp = icaltimezone_get_component ((icaltimezone *) zone);
+-	
+-	if (!icalcomp) {
+-		return GNOME_Evolution_Calendar_InvalidObject;
+-	}
+-		
+-	*object = g_strdup (icalcomponent_as_ical_string (icalcomp));
+-
+-	return GNOME_Evolution_Calendar_Success;
+-}
+-
+-static ECalBackendSyncStatus
+-caldav_add_timezone (ECalBackendSync *backend, 
+-		     EDataCal        *cal,
+-		     const char      *tzobj)
+-{
+-	/* FIXME: implement me! */
+-	g_warning ("function not implemented %s", G_STRFUNC);
+-	return GNOME_Evolution_Calendar_Success;	
+-}
+-
+-static ECalBackendSyncStatus
+-caldav_set_default_zone (ECalBackendSync *backend, 
+-			     EDataCal        *cal,
+-			     const char      *tzobj)
+-{
+-	/* FIXME: implement me! */
+-	g_warning ("function not implemented %s", G_STRFUNC);
+-	return GNOME_Evolution_Calendar_Success;	
+-}
+ 
+ static ECalBackendSyncStatus
+ caldav_get_object_list (ECalBackendSync  *backend, 
+@@ -2495,6 +2845,7 @@
+ 			  G_CALLBACK (soup_reauthenticate), cbdav);
+ 	
+ 	e_cal_backend_sync_set_lock (E_CAL_BACKEND_SYNC (cbdav), FALSE);
++
+ }
+ 
+ 
+diff -Naur evolution-data-server-1.8.3/calendar/libical/design-data/parameters.csv evolution-data-server-1.8.3-ju/calendar/libical/design-data/parameters.csv
+--- evolution-data-server-1.8.3/calendar/libical/design-data/parameters.csv	2007-01-29 13:31:57.000000000 +0200
++++ evolution-data-server-1.8.3-ju/calendar/libical/design-data/parameters.csv	2007-03-14 09:13:22.000000000 +0200
+@@ -6,7 +6,7 @@
+ "DELEGATED-TO","const char*",
+ "DIR","const char*",
+ "ENCODING","icalparameter_encoding","8BIT;BASE64"
+-"FBTYPE","icalparameter_fbtype","FREE;BUSY;BUSYUNAVAILABLE;BUSYTENTATIVE"
++"FBTYPE","icalparameter_fbtype","FREE;BUSY;BUSY-UNAVAILABLE;BUSY-TENTATIVE"
+ "FMTTYPE","const char*",
+ "LANGUAGE","const char*",
+ "MEMBER","const char*",
+diff -Naur evolution-data-server-1.8.3/calendar/libical/src/libical/icalcomponent.c evolution-data-server-1.8.3-ju/calendar/libical/src/libical/icalcomponent.c
+--- evolution-data-server-1.8.3/calendar/libical/src/libical/icalcomponent.c	2007-01-29 13:32:00.000000000 +0200
++++ evolution-data-server-1.8.3-ju/calendar/libical/src/libical/icalcomponent.c	2007-03-14 09:13:22.000000000 +0200
+@@ -281,12 +281,14 @@
+     pvl_elem itr;
+ 
+ /* WIN32 automatically adds the \r, Anybody else need it?
++   well, the spec says \r\n is a MUST
++
+ #ifdef ICAL_UNIX_NEWLINE    
+-*/
+     char newline[] = "\n";
+-/*
+ #else
++*/
+     char newline[] = "\r\n";
++/*    
+ #endif
+ */
+    
+@@ -825,6 +827,7 @@
+ 				       struct icaltimetype *dtstart,
+ 				       struct icaltimetype *recurtime) {
+   icalproperty *exdate, *exrule;
++  pvl_elem property_iterator = comp->property_iterator;
+ 
+   if (comp == NULL || 
+       dtstart == NULL || 
+@@ -842,6 +845,8 @@
+ 
+     if (icaltime_compare(*recurtime, exdatetime) == 0) {
+       /** MATCHED **/
++        
++      comp->property_iterator = property_iterator;
+       return 1;
+     }
+   }
+@@ -865,6 +870,7 @@
+       result = icaltime_compare(*recurtime, exrule_time);
+       if (result == 0) {
+ 	icalrecur_iterator_free(exrule_itr);
++        comp->property_iterator = property_iterator;
+ 	return 1; /** MATCH **/
+       }
+       if (result == 1)
+@@ -873,6 +879,7 @@
+ 
+     icalrecur_iterator_free(exrule_itr);
+   }
++  comp->property_iterator = property_iterator; 
+ 
+   return 0;  /** no matches **/
+ }
+diff -Naur evolution-data-server-1.8.3/calendar/libical/src/libical/icalparser.c evolution-data-server-1.8.3-ju/calendar/libical/src/libical/icalparser.c
+--- evolution-data-server-1.8.3/calendar/libical/src/libical/icalparser.c	2007-01-29 13:32:00.000000000 +0200
++++ evolution-data-server-1.8.3-ju/calendar/libical/src/libical/icalparser.c	2007-03-14 09:13:22.000000000 +0200
+@@ -79,11 +79,11 @@
+ #define strcasecmp    stricmp
+ #endif
+ 
+-char* icalparser_get_next_char(char c, char *str, int qm);
+-char* icalparser_get_next_parameter(char* line,char** end);
+-char* icalparser_get_next_value(char* line, char **end, icalvalue_kind kind);
+-char* icalparser_get_prop_name(char* line, char** end);
+-char* icalparser_get_param_name(char* line, char **end);
++static char* parser_get_next_char(char c, char *str, int qm);
++static char* parser_get_next_parameter(char* line,char** end);
++static char* parser_get_next_value(char* line, char **end, icalvalue_kind kind);
++static char* parser_get_prop_name(char* line, char** end);
++static char* parser_get_param_name(char* line, char **end, char **buf_value);
+ 
+ #define TMP_BUF_SIZE 80
+ 
+@@ -170,8 +170,8 @@
+                                                 icalproperty **error);
+ 
+ 
+-
+-char* icalparser_get_next_char(char c, char *str, int qm)
++static
++char* parser_get_next_char(char c, char *str, int qm)
+ {
+     int quote_mode = 0;
+     char* p;
+@@ -205,8 +205,9 @@
+     char *buf, *tmp;
+     size_t size = (size_t)end - (size_t)start;
+     
+-    buf = icalmemory_tmp_buffer(size+1);
++    //buf = icalmemory_tmp_buffer(size+1);
+     
++    buf = icalmemory_new_buffer(size+1);
+ 
+     strncpy(buf,start,size);
+     *(buf+size) = 0;
+@@ -221,15 +222,15 @@
+     return buf;
+ }
+ 
+-
+-char* icalparser_get_prop_name(char* line, char** end)
++static
++char* parser_get_prop_name(char* line, char** end)
+ {
+     char* p;
+     char* v;
+     char *str;
+ 
+-    p = icalparser_get_next_char(';',line,1); 
+-    v = icalparser_get_next_char(':',line,1); 
++    p = parser_get_next_char(';',line,1); 
++    v = parser_get_next_char(':',line,1); 
+     if (p== 0 && v == 0) {
+ 	return 0;
+     }
+@@ -247,14 +248,15 @@
+     return str;
+ }
+ 
+-
+-char* icalparser_get_param_name(char* line, char **end)
++static
++char* parser_get_param_name(char* line, char **end, char **buf)
+ {
+     char* next; 
+     char *str;
+ 
+-    next = icalparser_get_next_char('=',line,1);
++    next = parser_get_next_char('=',line,1);
+ 
++    *buf = 0;
+     if (next == 0) {
+ 	return 0;
+     }
+@@ -263,24 +265,25 @@
+     *end = next+1;
+     if (**end == '"') {
+         *end = *end+1;
+-	    next = icalparser_get_next_char('"',*end,0);
++	    next = parser_get_next_char('"',*end,0);
+ 	    if (next == 0) {
+ 		    return 0;
+ 	    }
+ 
+-	    *end = make_segment(*end,next);
++	    *buf = *end = make_segment(*end,next);
+     }
+ 
+     return str;
+ }
+ 
+-
+-char* icalparser_get_next_paramvalue(char* line, char **end)
++#if 0
++static
++char* parser_get_next_paramvalue(char* line, char **end)
+ {
+     char* next; 
+     char *str;
+ 
+-    next = icalparser_get_next_char(',',line,1);
++    next = parser_get_next_char(',',line,1);
+ 
+     if (next == 0){
+ 	next = (char*)(size_t)line+(size_t)strlen(line);\
+@@ -294,7 +297,7 @@
+ 	return str;
+     }
+ }
+-
++#endif
+ 
+ /**
+    A property may have multiple values, if the values are seperated by
+@@ -302,7 +305,8 @@
+    comma after line and will set the next place to start searching in
+    end. */
+ 
+-char* icalparser_get_next_value(char* line, char **end, icalvalue_kind kind)
++static 
++char* parser_get_next_value(char* line, char **end, icalvalue_kind kind)
+ {
+     
+     char* next;
+@@ -313,7 +317,7 @@
+     p = line;
+     while(1){
+ 
+-	next = icalparser_get_next_char(',',p,1);
++	next = parser_get_next_char(',',p,1);
+ 
+ 	/* Unforunately, RFC2445 says that for the RECUR value, COMMA
+ 	   can both seperate digits in a list, and it can seperate
+@@ -377,20 +381,21 @@
+    
+ }
+ 
+-char* icalparser_get_next_parameter(char* line,char** end)
++static 
++char* parser_get_next_parameter(char* line,char** end)
+ {
+     char *next;
+     char *v;
+     char *str;
+ 
+-    v = icalparser_get_next_char(':',line,1); 
+-    next = icalparser_get_next_char(';', line,1);
++    v = parser_get_next_char(':',line,1); 
++    next = parser_get_next_char(';', line,1);
+     
+     /* There is no ';' or, it is after the ':' that marks the beginning of
+        the value */
+ 
+     if (next == 0 || next > v) {
+-	next = icalparser_get_next_char(':', line,1);
++	next = parser_get_next_char(':', line,1);
+     }
+ 
+     if (next != 0) {
+@@ -661,7 +666,7 @@
+        a component */
+ 
+     end = 0;
+-    str = icalparser_get_prop_name(line, &end);
++    str = parser_get_prop_name(line, &end);
+ 
+     if (str == 0 || strlen(str) == 0 ){
+ 	/* Could not get a property name */
+@@ -674,6 +679,7 @@
+ 	}
+ 	tail = 0;
+ 	parser->state = ICALPARSER_ERROR;
++	icalmemory_free_buffer(str);
+ 	return 0; 
+     }
+ 
+@@ -688,9 +694,10 @@
+ 	icalcomponent *c;
+         icalcomponent_kind comp_kind;
+ 
++	icalmemory_free_buffer(str);
+ 
+ 	parser->level++;
+-	str = icalparser_get_next_value(end,&end, value_kind);
++	str = parser_get_next_value(end,&end, value_kind);
+ 	    
+ 
+         comp_kind = icalenum_string_to_component_kind(str);
+@@ -715,13 +722,17 @@
+ 	pvl_push(parser->components,c);
+ 
+ 	parser->state = ICALPARSER_BEGIN_COMP;
++
++	icalmemory_free_buffer(str);
+ 	return 0;
+ 
+     } else if (strcmp(str,"END") == 0 ) {
+ 	icalcomponent* tail;
+ 
++	icalmemory_free_buffer(str);
++
+ 	parser->level--;
+-	str = icalparser_get_next_value(end,&end, value_kind);
++	str = parser_get_next_value(end,&end, value_kind);
+ 
+ 	/* Pop last component off of list and add it to the second-to-last*/
+ 	parser->root_component = pvl_pop(parser->components);
+@@ -733,6 +744,7 @@
+ 	} 
+ 
+ 	tail = 0;
++	icalmemory_free_buffer(str), str = NULL;
+ 
+ 	/* Return the component if we are back to the 0th level */
+ 	if (parser->level == 0){
+@@ -764,6 +776,7 @@
+ 
+     if(pvl_data(pvl_tail(parser->components)) == 0){
+ 	parser->state = ICALPARSER_ERROR;
++	icalmemory_free_buffer(str);
+ 	return 0;
+     }
+ 
+@@ -802,9 +815,12 @@
+ 	    
+ 	tail = 0;
+ 	parser->state = ICALPARSER_ERROR;
++	icalmemory_free_buffer(str);
+ 	return 0;
+     }
+ 
++    icalmemory_free_buffer(str), str = NULL;
++
+     /**********************************************************************
+      * Handle parameter values
+      **********************************************************************/								       
+@@ -820,18 +836,19 @@
+ 	    break;
+ 	}
+ 
+-	str = icalparser_get_next_parameter(end,&end);
++	str = parser_get_next_parameter(end,&end);
+ 	str = strstrip (str);
+ 
+ 	if (str != 0){
+ 	    char* name;
+ 	    char* pvalue;
++	    char *buf_value = NULL;
+         
+ 	    icalparameter *param = 0;
+ 	    icalparameter_kind kind;
+ 	    icalcomponent *tail = pvl_data(pvl_tail(parser->components));
+ 
+-	    name = icalparser_get_param_name(str,&pvalue);
++	    name = parser_get_param_name(str,&pvalue, &buf_value);
+ 
+ 	    if (name == 0){
+ 		/* 'tail' defined above */
+@@ -850,10 +867,13 @@
+ 		    icalparameter_set_xname(param,name);
+ 		    icalparameter_set_xvalue(param,pvalue);
+ 		}
+-
++		icalmemory_free_buffer(buf_value), buf_value = NULL;
+ 
+ 	    } else if (kind != ICAL_NO_PARAMETER){
+ 		param = icalparameter_new_from_value_string(kind,pvalue);
++
++		icalmemory_free_buffer(buf_value), buf_value = NULL;
++
+ 	    } else {
+ 		/* Error. Failed to parse the parameter*/
+ 		/* 'tail' defined above */
+@@ -861,6 +881,10 @@
+ 			     ICAL_XLICERRORTYPE_PARAMETERNAMEPARSEERROR);
+ 		tail = 0;
+ 		parser->state = ICALPARSER_ERROR;
++		
++		icalmemory_free_buffer(buf_value), buf_value = NULL;
++		icalmemory_free_buffer(name), name = NULL;
++		icalmemory_free_buffer(str), str = NULL;
+ 		continue;
+ 	    }
+ 
+@@ -871,6 +895,9 @@
+ 		    
+ 		tail = 0;
+ 		parser->state = ICALPARSER_ERROR;
++  	  	
++		icalmemory_free_buffer(name), name = NULL;
++  	  	icalmemory_free_buffer(str), str = NULL;
+ 		continue;
+ 	    }
+ 
+@@ -901,13 +928,18 @@
+ 		    icalparameter_free(param);
+ 		    tail = 0;
+ 		    parser->state = ICALPARSER_ERROR;
++	 	    
++  		    icalmemory_free_buffer(name), name = NULL;
++	 	    icalmemory_free_buffer(str), str = NULL;
+ 		    continue;	
+ 		} 
+ 	    }
++	    icalmemory_free_buffer(name), name = NULL;
+ 
+ 	    /* Everything is OK, so add the parameter */
+ 	    icalproperty_add_parameter(prop,param);
+ 	    tail = 0;
++            icalmemory_free_buffer(str), str = NULL;
+ 
+ 	} else { /* if ( str != 0)  */
+ 	    /* If we did not get a param string, go on to looking
+@@ -915,8 +947,9 @@
+ 	    break;
+ 	} /* if ( str != 0)  */
+ 
++ 
+     } /* while(1) */	    
+-	
++  	
+     /**********************************************************************
+      * Handle values
+      **********************************************************************/								       
+@@ -927,7 +960,7 @@
+ 
+     vcount=0;
+     while(1) {
+-	str = icalparser_get_next_value(end,&end, value_kind);
++	str = parser_get_next_value(end,&end, value_kind);
+ 	str = strstrip (str);
+ 
+ 	if (str != 0){
+@@ -964,13 +997,15 @@
+ 		prop = 0;
+ 		tail = 0;
+ 		parser->state = ICALPARSER_ERROR;
++	
++		icalmemory_free_buffer(str), str = NULL;
+ 		return 0;
+ 		    
+ 	    } else {
+ 		vcount++;
+ 		icalproperty_set_value(prop, value);
+ 	    }
+-
++ 	    icalmemory_free_buffer(str), str = NULL;
+ 
+ 	} else {
+ 	    if (vcount == 0){
+@@ -1002,7 +1037,7 @@
+     /****************************************************************
+      * End of component parsing. 
+      *****************************************************************/
+-
++ 
+     if (pvl_data(pvl_tail(parser->components)) == 0 &&
+ 	parser->level == 0){
+ 	/* HACK. Does this clause ever get executed? */
+diff -Naur evolution-data-server-1.8.3/calendar/libical/src/libical/icalproperty.c evolution-data-server-1.8.3-ju/calendar/libical/src/libical/icalproperty.c
+--- evolution-data-server-1.8.3/calendar/libical/src/libical/icalproperty.c	2007-01-29 13:32:00.000000000 +0200
++++ evolution-data-server-1.8.3-ju/calendar/libical/src/libical/icalproperty.c	2007-03-14 09:13:22.000000000 +0200
+@@ -183,10 +183,10 @@
+ 
+     /* Is this a HACK or a crafty reuse of code? */
+ 
+-    icalmemory_append_string(&buf, &buf_ptr, &buf_size, "BEGIN:VCALENDAR\n");
++    icalmemory_append_string(&buf, &buf_ptr, &buf_size, "BEGIN:VCALENDAR\r\n");
+     icalmemory_append_string(&buf, &buf_ptr, &buf_size, str);
+-    icalmemory_append_string(&buf, &buf_ptr, &buf_size, "\n");    
+-    icalmemory_append_string(&buf, &buf_ptr, &buf_size, "END:VCALENDAR\n");
++    icalmemory_append_string(&buf, &buf_ptr, &buf_size, "\r\n");    
++    icalmemory_append_string(&buf, &buf_ptr, &buf_size, "END:VCALENDAR\r\n");
+ 
+     comp = icalparser_parse_string(buf);
+ 
+@@ -341,7 +341,7 @@
+ 	/* If this isn't the first line, we need to output a newline and space
+ 	   first. */
+ 	if (!first_line) {
+-	    icalmemory_append_string (&buf, &buf_ptr, &buf_size, "\n ");
++	    icalmemory_append_string (&buf, &buf_ptr, &buf_size, "\r\n ");
+ 	}
+ 	first_line = 0;
+ 
+@@ -433,7 +433,7 @@
+     char *out_buf;
+     const char* kind_string = 0;
+ 
+-    char newline[] = "\n";
++    char newline[] = "\r\n";
+ 
+     
+     icalerror_check_arg_rz( (prop!=0),"prop");

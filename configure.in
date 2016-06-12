@@ -27,7 +27,7 @@ dnl ===========================================================================
 dnl Process this file with autoconf to produce a configure script.
 dnl ===========================================================================
 
-AC_INIT([mod_caldav],0.2.0)
+AC_INIT([mod_caldav],0.3.0)
 
 dnl ===========================================================================
 dnl Get host, target and build variables filled with appropriate info.

@@ -349,9 +349,8 @@ static void freebusy_callback(icalcomponent *comp, int first,
 	icalproperty *property;
 
 	per.duration = icaldurationtype_from_int(span->end - span->start);
-	per.start = icaltime_from_timet(span->start, 0);
-	per.end = icaltime_from_timet(span->end, 0);
-	per.end.is_utc = per.start.is_utc = TRUE;
+	per.start = icaltime_from_timet_with_zone(span->start, 0, icaltimezone_get_utc_timezone());
+	per.end = icaltime_from_timet_with_zone(span->end, 0, icaltimezone_get_utc_timezone());
 
 	/* check instantiated list */
 	if (fb->list) {
@@ -408,8 +407,8 @@ static void add_component_to_list(icalcomponent *p,
     int i;
 
     for (i = 0; i < *pc; i++) {
-	if ((p == list[0][i]))
-	    break;
+        if (p == list[0][i])
+            break;
     }
 
     if (i == *pc) {
@@ -1072,7 +1071,9 @@ static icalcomponent *show_requested_comps(icalcomponent *parent,
 			xmlChar *pch = xmlGetProp(n, (const xmlChar *) "novalue");
 
 			if (pch && strcasecmp((char *) pch, "yes") == 0) {
-			    icalvalue *v = icalvalue_new_from_string(icalproperty_isa(prop), "");
+				// check me
+			    icalvalue *v = icalvalue_new_from_string(
+			    		icalvalue_isa_value(icalproperty_get_value(prop)), "");
 
 			    icalproperty_set_value(prop, v);
 			}

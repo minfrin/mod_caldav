@@ -222,12 +222,12 @@ static dav_error *caldav_prop_allowed(request_rec *r,
     return dav_acl_check(r, resource, ARRAY(privs));
 }
 
-static dav_hooks_acl *caldav_acl_hooks(void)
+static dav_acl_provider *caldav_acl_hooks(void)
 {
-    static dav_hooks_acl h =
+    static dav_acl_provider h =
     {
-	acl_check_read: caldav_read_allowed,
-	acl_check_prop: caldav_prop_allowed
+	.acl_check_read = caldav_read_allowed,
+	.acl_check_prop = caldav_prop_allowed
     };
 
     return &h;
@@ -266,11 +266,11 @@ static void caldav_send_props(apr_bucket_brigade *bb, request_rec *r,
 
 	/* store these for dav_get_props callbacks */
 	resource->ctx = p;
-	resource->acl_hooks = caldav_acl_hooks();
+	resource->acls = caldav_acl_hooks();
 	response.propresult = dav_get_props(propdb, adoc);
     }
     apr_pool_clear(subpool);
-    dav_send_one_response(&response, bb, r->output_filters, subpool);
+    dav_send_one_response(&response, bb, r, subpool);
 
     if (propdb)
 	dav_close_propdb(propdb);
@@ -569,7 +569,7 @@ static void caldav_send_multiget(const char *subdir, int depth,
     xmlNode *node = NULL;
 
     if (prop == NULL) {
-	dav_handle_err(r, dav_new_error(r->pool, HTTP_NOT_FOUND, 0,
+	dav_handle_err(r, dav_new_error(r->pool, HTTP_NOT_FOUND, 0, APR_SUCCESS,
 					"Property <prop> not given"), NULL);
 	return;
     }
@@ -655,18 +655,11 @@ static void caldav_log_err(request_rec *r, dav_error *err, int level)
     /* Log the errors */
     /* ### should have a directive to log the first or all */
     for (errscan = err; errscan != NULL; errscan = errscan->prev) {
-	if (errscan->desc == NULL)
-	     continue;
+        if (errscan->desc == NULL)
+            continue;
 
-	if (errscan->save_errno != 0) {
-	    errno = errscan->save_errno;
-	    ap_log_rerror(APLOG_MARK, level, errno, r, "%s [%d, #%d]",
-			  errscan->desc, errscan->status, errscan->error_id);
-	}
-	else {
-	    ap_log_rerror(APLOG_MARK, level, 0, r, "%s [%d, #%d]",
-			  errscan->desc, errscan->status, errscan->error_id);
-        }
+        ap_log_rerror(APLOG_MARK, level, errscan->aprerr, r, "%s [%d, #%d]",
+            errscan->desc, errscan->status, errscan->error_id);
     }
 }
 
@@ -689,7 +682,7 @@ static int caldav_mkcalendar(caldav_dir_cfg *conf, request_rec *r)
     dav_resource *parent = NULL;
 
     if (conf->provider == NULL)
-	return dav_handle_err(r, dav_new_error (r->pool, HTTP_FORBIDDEN, 0,
+	return dav_handle_err(r, dav_new_error (r->pool, HTTP_FORBIDDEN, 0, APR_SUCCESS,
 			      "Directory path not configured, you need some "
 			      "caldav directives !"), NULL);
 
@@ -703,7 +696,7 @@ static int caldav_mkcalendar(caldav_dir_cfg *conf, request_rec *r)
 	return dav_handle_err(r, err, NULL);
 
     if (resource->exists) {
-	err = dav_new_error(r->pool, HTTP_FORBIDDEN, 0, "Collection exists already");
+	err = dav_new_error(r->pool, HTTP_FORBIDDEN, 0, APR_SUCCESS, "Collection exists already");
 	err->tagname = "resource-must-be-null";
 	return dav_handle_err(r, err, NULL);
     }
@@ -833,8 +826,8 @@ static int caldav_mkcalendar(caldav_dir_cfg *conf, request_rec *r)
 	    return DONE;
 	}
     }
-    if ((resource->acl_hooks = dav_get_acl_hooks()))
-	resource->acl_hooks->acl_post_processing(r, resource, 1);
+    if ((resource->acls = dav_get_acl_providers("acl")))
+	resource->acls->acl_post_processing(r, resource, 1);
 
     caldav_store_resource_type(r, resource);
 
@@ -909,7 +902,7 @@ static int caldav_report(caldav_dir_cfg *conf, request_rec *r)
     /* acl checks on individual reports */
     if (conf->provider == NULL)
 	return dav_handle_err(r,
-		dav_new_error(r->pool, HTTP_FORBIDDEN, 0,
+		dav_new_error(r->pool, HTTP_FORBIDDEN, 0, APR_SUCCESS,
 			      "Directory path not configured, you need some "
 			      "caldav directives !"), NULL);
 
@@ -991,7 +984,7 @@ static int caldav_report(caldav_dir_cfg *conf, request_rec *r)
 
 error:
     xmlFreeDoc(doc);
-    err = dav_new_error(r->pool, HTTP_BAD_REQUEST, 0,
+    err = dav_new_error(r->pool, HTTP_BAD_REQUEST, 0, APR_SUCCESS,
 			"Depth-header value incorrect");
     return dav_handle_err(r, err, NULL);
 }
@@ -1107,8 +1100,7 @@ dav_resource_type_provider
 #endif
 res_hooks =
 {
-    caldav_get_resource_type,
-    NULL
+    caldav_get_resource_type
 };
 
 static void caldav_add_input_filter(request_rec *r)

@@ -213,7 +213,7 @@ static dav_error *caldav_patch_validate(const dav_resource *resource,
 
     case CALDAV_PROPID_calendar_home_set:
 	if (!dav_acl_is_resource_principal(resource)) {
-	    return dav_new_error(resource->pool, HTTP_CONFLICT, 0,
+	    return dav_new_error(resource->pool, HTTP_CONFLICT, 0, APR_SUCCESS,
 				 "The resource URI is not a principal");
 	}
 	*defer_to_dead = TRUE;

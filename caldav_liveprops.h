@@ -27,7 +27,7 @@ void caldav_register_props(apr_pool_t *p);
 void caldav_gather_propsets(apr_array_header_t *uris);
 
 int caldav_find_liveprop(const dav_resource *resource,
-			 const char *ns_uri, const char *name,
-			 const dav_hooks_liveprop **hooks);
+                         const char *ns_uri, const char *name,
+                         const dav_hooks_liveprop **hooks);
 
 #endif  /* _CALDAV_LIVEPROPS_H_ */

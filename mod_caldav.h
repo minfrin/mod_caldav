@@ -28,10 +28,10 @@
 #define XML_VERSION "1.0"
 
 #define NODE_NS(node, ns_string) (node->ns && node->ns->href && \
-				  strcmp((char *) node->ns->href, ns_string) == 0)
+                                  strcmp((char *) node->ns->href, ns_string) == 0)
 
 #define FOR_CHILD(node, parent) \
-	for (node = parent ? parent->children : NULL; node; node = node->next)
+        for (node = parent ? parent->children : NULL; node; node = node->next)
 
 #define NODE_NOT_DAV(node) node->type != XML_ELEMENT_NODE || !NODE_NS(node, NS_DAV)
 #define NODE_NOT_CALDAV(node) node->type != XML_ELEMENT_NODE || !NODE_NS(node, NS_CALDAV)

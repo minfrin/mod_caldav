@@ -108,9 +108,9 @@ static const dav_liveprop_group caldav_liveprop_group =
 
 
 static dav_prop_insert caldav_insert_prop(const dav_resource *resource,
-						int propid,
-						dav_prop_insert what,
-						apr_text_header *phdr)
+                                                int propid,
+                                                dav_prop_insert what,
+                                                apr_text_header *phdr)
 {
     const char *value = NULL;
     const char *s = NULL;
@@ -120,40 +120,40 @@ static dav_prop_insert caldav_insert_prop(const dav_resource *resource,
     char *fval = NULL;
 
     if (!resource->exists)
-	return DAV_PROP_INSERT_NOTDEF;
+        return DAV_PROP_INSERT_NOTDEF;
 
     /* ### we may want to respond to DAV_PROPID_resourcetype for PRIVATE
        ### resources. need to think on "proper" interaction with mod_dav */
 
     switch (propid) {
     case CALDAV_PROPID_getctag:
-	{
-	    request_rec *r = resource->hooks->get_request_rec(resource);
+        {
+            request_rec *r = resource->hooks->get_request_rec(resource);
 
-	    value = caldav_ctag(r);
-	    if (value == NULL)
-		return DAV_PROP_INSERT_NOTDEF;
-	}
-	break;
+            value = caldav_ctag(r);
+            if (value == NULL)
+                return DAV_PROP_INSERT_NOTDEF;
+        }
+        break;
 
     case CALDAV_PROPID_calendar_data:
-	{
-	    request_rec *r = resource->hooks->get_request_rec(resource);
-	    caldav_search_t *p;
+        {
+            request_rec *r = resource->hooks->get_request_rec(resource);
+            caldav_search_t *p;
 
-	    if (r->method_number != M_REPORT)
-		return DAV_PROP_INSERT_NOTDEF;
+            if (r->method_number != M_REPORT)
+                return DAV_PROP_INSERT_NOTDEF;
 
-	    p = resource->ctx;
-	    value = fval = caldav_ical_dump(p);
-	    if (value == NULL)
-		return DAV_PROP_INSERT_NOTDEF;
-	    break;
-	}
+            p = resource->ctx;
+            value = fval = caldav_ical_dump(p);
+            if (value == NULL)
+                return DAV_PROP_INSERT_NOTDEF;
+            break;
+        }
 
     default:
-	/* ### what the heck was this property? */
-	return DAV_PROP_INSERT_NOTDEF;
+        /* ### what the heck was this property? */
+        return DAV_PROP_INSERT_NOTDEF;
     }
 
     /* assert: value != NULL */
@@ -164,15 +164,15 @@ static dav_prop_insert caldav_insert_prop(const dav_resource *resource,
     /* assert: info != NULL && info->name != NULL */
 
     if (what == DAV_PROP_INSERT_VALUE)
-	s = apr_psprintf(p, "<lp%d:%s>%s</lp%d:%s>" DEBUG_CR,
-			 global_ns, info->name, value, global_ns, info->name);
+        s = apr_psprintf(p, "<lp%d:%s>%s</lp%d:%s>" DEBUG_CR,
+                         global_ns, info->name, value, global_ns, info->name);
     else if (what == DAV_PROP_INSERT_NAME)
-	s = apr_psprintf(p, "<lp%d:%s/>" DEBUG_CR, global_ns, info->name);
+        s = apr_psprintf(p, "<lp%d:%s/>" DEBUG_CR, global_ns, info->name);
     else
-	/* assert: what == DAV_PROP_INSERT_SUPPORTED */
-	s = apr_psprintf(p, "<D:supported-live-property D:name=\"%s\" "
-			    "D:namespace=\"%s\"/>" DEBUG_CR,
-			    info->name, caldav_namespace_uris[info->ns]);
+        /* assert: what == DAV_PROP_INSERT_SUPPORTED */
+        s = apr_psprintf(p, "<D:supported-live-property D:name=\"%s\" "
+                            "D:namespace=\"%s\"/>" DEBUG_CR,
+                            info->name, caldav_namespace_uris[info->ns]);
 
     apr_text_append(p, phdr, s);
 
@@ -191,9 +191,9 @@ static int caldav_is_writable (const dav_resource *resource, int propid)
 }
 
 static dav_error *caldav_patch_validate(const dav_resource *resource,
-					const apr_xml_elem *elem,
-					int operation, void **context,
-					int *defer_to_dead)
+                                        const apr_xml_elem *elem,
+                                        int operation, void **context,
+                                        int *defer_to_dead)
 {
     /* NOTE: this function will not be called unless/until we have
        modifiable (writable) live properties. */
@@ -201,34 +201,34 @@ static dav_error *caldav_patch_validate(const dav_resource *resource,
 
     switch (priv->propid) {
     case CALDAV_PROPID_calendar_description:
-	*defer_to_dead = TRUE;
-	break;
+        *defer_to_dead = TRUE;
+        break;
 
     case CALDAV_PROPID_calendar_timezone:
-	/* actually a dead property, but defined as alive to have
-	 * this callback for proppatch
-	 */
-	*defer_to_dead = TRUE;
-	break;
+        /* actually a dead property, but defined as alive to have
+         * this callback for proppatch
+         */
+        *defer_to_dead = TRUE;
+        break;
 
     case CALDAV_PROPID_calendar_home_set:
-	if (!dav_acl_is_resource_principal(resource)) {
-	    return dav_new_error(resource->pool, HTTP_CONFLICT, 0, APR_SUCCESS,
-				 "The resource URI is not a principal");
-	}
-	*defer_to_dead = TRUE;
-	break;
+        if (!dav_acl_is_resource_principal(resource)) {
+            return dav_new_error(resource->pool, HTTP_CONFLICT, 0, APR_SUCCESS,
+                                 "The resource URI is not a principal");
+        }
+        *defer_to_dead = TRUE;
+        break;
 
     default:
-	break;
+        break;
     }
     return NULL;
 }
 
 static dav_error *caldav_patch_exec(const dav_resource *resource,
-					const apr_xml_elem *elem,
-					int operation, void *context,
-					dav_liveprop_rollback **rollback_ctx)
+                                        const apr_xml_elem *elem,
+                                        int operation, void *context,
+                                        dav_liveprop_rollback **rollback_ctx)
 {
     /* NOTE: this function will not be called unless/until we have
        modifiable (writable) live properties. */
@@ -236,16 +236,16 @@ static dav_error *caldav_patch_exec(const dav_resource *resource,
 }
 
 static void caldav_patch_commit(const dav_resource *resource,
-				int operation, void *context,
-				dav_liveprop_rollback *rollback_ctx)
+                                int operation, void *context,
+                                dav_liveprop_rollback *rollback_ctx)
 {
     /* NOTE: this function will not be called unless/until we have
        modifiable (writable) live properties. */
 }
 
 static dav_error *caldav_patch_rollback(const dav_resource *resource,
-					int operation, void *context,
-					dav_liveprop_rollback *rollback_ctx)
+                                        int operation, void *context,
+                                        dav_liveprop_rollback *rollback_ctx)
 {
     /* NOTE: this function will not be called unless/until we have
        modifiable (writable) live properties. */
@@ -267,12 +267,12 @@ void caldav_gather_propsets(apr_array_header_t *uris)
 }
 
 int caldav_find_liveprop(const dav_resource *resource,
-				const char *ns_uri, const char *name,
-				const dav_hooks_liveprop **hooks)
+                                const char *ns_uri, const char *name,
+                                const dav_hooks_liveprop **hooks)
 {
     /* don't try to find any liveprops if this isn't "our" resource
-	if (resource->hooks != &caldav_hooks_repos)
-	   return 0;
+        if (resource->hooks != &caldav_hooks_repos)
+           return 0;
      */
     return dav_do_find_liveprop(ns_uri, name, &caldav_liveprop_group, hooks);
 }

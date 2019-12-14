@@ -82,9 +82,9 @@ typedef struct _caldav_server_cfg {
 /* directory configuration data */
 typedef struct _caldav_dir_cfg {
     char *min_date_time,
-	 *max_date_time,
-	 *max_instances,
-	 *max_attendees_per_instance;
+         *max_date_time,
+         *max_instances,
+         *max_attendees_per_instance;
     int etag_response;
     const dav_provider *provider;
 } caldav_dir_cfg;
@@ -113,16 +113,16 @@ static void *caldav_create_dir_config(apr_pool_t *p, char *dirspec)
     return conf;
 }
 
-#define STR_CONF_FUNC(x, val) 							\
-										\
-/* directive */									\
-static const char *caldav_##x(cmd_parms *cmd, void *mconfig, const char *pch)	\
-{										\
-    caldav_dir_cfg *conf = mconfig;						\
-										\
-    conf->x = (char*)apr_psprintf(cmd->pool, "%s", pch ? pch : val);		\
-										\
-    return NULL;								\
+#define STR_CONF_FUNC(x, val)                                                         \
+                                                                                \
+/* directive */                                                                        \
+static const char *caldav_##x(cmd_parms *cmd, void *mconfig, const char *pch)        \
+{                                                                                \
+    caldav_dir_cfg *conf = mconfig;                                                \
+                                                                                \
+    conf->x = (char*)apr_psprintf(cmd->pool, "%s", pch ? pch : val);                \
+                                                                                \
+    return NULL;                                                                \
 }
 
 STR_CONF_FUNC(min_date_time, "20060101T000000Z")
@@ -130,13 +130,13 @@ STR_CONF_FUNC(max_date_time, "20060101T000000Z")
 STR_CONF_FUNC(max_instances, "10000")
 STR_CONF_FUNC(max_attendees_per_instance, "100")
 
-#define DIRECTIVE(n, f, d)					\
-    AP_INIT_TAKE1(						\
-	n,		/* directive name */			\
-	caldav_##f,	/* config action routine */		\
-	NULL,		/* argument to include in call */	\
-	OR_OPTIONS,	/* where available */			\
-	d		/* directive description */		\
+#define DIRECTIVE(n, f, d)                                        \
+    AP_INIT_TAKE1(                                                \
+        n,                /* directive name */                        \
+        caldav_##f,        /* config action routine */                \
+        NULL,                /* argument to include in call */        \
+        OR_OPTIONS,        /* where available */                        \
+        d                /* directive description */                \
       ),
 
 /*
@@ -158,11 +158,11 @@ static const command_rec caldav_cmds[] =
     DIRECTIVE("MaxDateTime",  max_date_time, "Maximum datetime")
     DIRECTIVE("MaxInstances", max_instances, "Maximum instances")
     DIRECTIVE("MaxAttendeesPerInstance", max_attendees_per_instance,
-		"Maximum attendees per instance")
+                "Maximum attendees per instance")
 
     /* per directory/location, or per server */
     AP_INIT_FLAG("CalQueryETagResponse", etag_response, NULL,
-		 OR_OPTIONS, "response with ETag for calendar-query"),
+                 OR_OPTIONS, "response with ETag for calendar-query"),
     { NULL }
 };
 
@@ -180,7 +180,7 @@ static int caldav_store_resource_type(request_rec *r,
     const dav_hooks_propdb *db_hooks = provider ? provider->propdb : NULL;
 
     if (!provider || !resource || !db_hooks)
-	return -1;
+        return -1;
 
     ns = apr_array_make(resource->pool, 3, sizeof(const char *));
     *(const char**) apr_array_push (ns) = NS_DAV;
@@ -193,10 +193,10 @@ static int caldav_store_resource_type(request_rec *r,
 
     db_hooks->open(resource->pool, resource, 0, &db);
     if (db) {
-	db_hooks->map_namespaces(db, ns, &map);
-	db_hooks->store(db, restype, el_child, map);
-	db_hooks->close(db);
-	return 0;
+        db_hooks->map_namespaces(db, ns, &map);
+        db_hooks->store(db, restype, el_child, map);
+        db_hooks->close(db);
+        return 0;
     }
 
     return -1;
@@ -226,8 +226,8 @@ static dav_acl_provider *caldav_acl_hooks(void)
 {
     static dav_acl_provider h =
     {
-	.acl_check_read = caldav_read_allowed,
-	.acl_check_prop = caldav_prop_allowed
+        .acl_check_read = caldav_read_allowed,
+        .acl_check_prop = caldav_prop_allowed
     };
 
     return &h;
@@ -238,7 +238,7 @@ static dav_error *caldav_freebusy_allowed(request_rec *r,
                                           const dav_resource *resource)
 {
     const dav_prop_name privs[] = { { NS_DAV, "read" },
-				    { NS_CALDAV, "read-free-busy" } };
+                                    { NS_CALDAV, "read-free-busy" } };
 
     return dav_acl_check(r, resource, ARRAY(privs));
 }
@@ -260,20 +260,20 @@ static void caldav_send_props(apr_bucket_brigade *bb, request_rec *r,
     response.href = rf->uri;
 
     if (prop) {
-	apr_xml_doc *adoc = dav_acl_get_prop_doc(r, prop);
+        apr_xml_doc *adoc = dav_acl_get_prop_doc(r, prop);
 
-	dav_open_propdb(rf, NULL, resource, 1, adoc->namespaces, &propdb);
+        dav_open_propdb(rf, NULL, resource, 1, adoc->namespaces, &propdb);
 
-	/* store these for dav_get_props callbacks */
-	resource->ctx = p;
-	resource->acls = caldav_acl_hooks();
-	response.propresult = dav_get_props(propdb, adoc);
+        /* store these for dav_get_props callbacks */
+        resource->ctx = p;
+        resource->acls = caldav_acl_hooks();
+        response.propresult = dav_get_props(propdb, adoc);
     }
     apr_pool_clear(subpool);
     dav_send_one_response(&response, bb, r, subpool);
 
     if (propdb)
-	dav_close_propdb(propdb);
+        dav_close_propdb(propdb);
 }
 
 /** return default timezone */
@@ -286,37 +286,37 @@ static const icaltimezone *caldav_timezone(request_rec *r,
     icalcomponent *c;
 
     if (resource->collection == FALSE) {
-	char *pr = strrchr(r->filename, '/');
+        char *pr = strrchr(r->filename, '/');
 
-	if (pr && *pr) {
-	    dav_resource *parent = NULL;
+        if (pr && *pr) {
+            dav_resource *parent = NULL;
 
-	    *pr = 0;
-	    if (conf->provider->repos->
-			get_parent_resource(resource, &parent) == NULL)
-		time_zone = dav_acl_get_prop(r, parent, conf->provider, &prop);
-	    *pr = '/';
-	}
+            *pr = 0;
+            if (conf->provider->repos->
+                        get_parent_resource(resource, &parent) == NULL)
+                time_zone = dav_acl_get_prop(r, parent, conf->provider, &prop);
+            *pr = '/';
+        }
     }
     else {
-	time_zone = dav_acl_get_prop(r, resource, conf->provider, &prop);
+        time_zone = dav_acl_get_prop(r, resource, conf->provider, &prop);
     }
 
     c = time_zone ? icalparser_parse_string(time_zone) : NULL;
 
     if (c) {
-	const char *tzid;
-	icalproperty *prop =
-		icalcomponent_get_first_property(c, ICAL_TZID_PROPERTY);
-	/* Get the TZID property of the first VTIMEZONE. */
-	if (prop == NULL)
-	    return NULL;
+        const char *tzid;
+        icalproperty *prop =
+                icalcomponent_get_first_property(c, ICAL_TZID_PROPERTY);
+        /* Get the TZID property of the first VTIMEZONE. */
+        if (prop == NULL)
+            return NULL;
 
-	tzid = icalproperty_get_tzid(prop);
-	if (tzid == NULL)
-	    return NULL;
+        tzid = icalproperty_get_tzid(prop);
+        if (tzid == NULL)
+            return NULL;
 
-	return icalcomponent_get_timezone(c, tzid);
+        return icalcomponent_get_timezone(c, tzid);
     }
 
     return NULL;
@@ -326,7 +326,7 @@ static const icaltimezone *caldav_timezone(request_rec *r,
 static void caldav_init_multistatus(apr_bucket_brigade **bb, request_rec *r)
 {
     if (bb == NULL || *bb)
-	return;
+        return;
 
     *bb = apr_brigade_create(r->pool, r->connection->bucket_alloc);
 
@@ -344,74 +344,74 @@ static void caldav_send_calendar_props(const char *subdir, int depth,
     apr_status_t rc;
     const char *directory = subdir ? subdir : r->filename;
     struct dirent entry[offsetof(struct dirent, d_name) +
-			pathconf(directory, _PC_NAME_MAX) + 1];
+                        pathconf(directory, _PC_NAME_MAX) + 1];
     DIR *dp;
 
     depth_current++;
     if (depth_current > depth)
-	return;
+        return;
 
     for (dp = opendir(directory); dp; ) {
-	char *file;
-	struct dirent *res = NULL;
+        char *file;
+        struct dirent *res = NULL;
 
-	if (readdir_r(dp, entry, &res) != 0 || res == NULL)
-	    break;
+        if (readdir_r(dp, entry, &res) != 0 || res == NULL)
+            break;
 
-	/* no current/parent dir or hidden file == .* */
-	if (entry->d_name[0] == '.')
-	    continue;
-	file = apr_pstrcat(subpool, directory, entry->d_name, NULL);
-	stat(file, &st);
+        /* no current/parent dir or hidden file == .* */
+        if (entry->d_name[0] == '.')
+            continue;
+        file = apr_pstrcat(subpool, directory, entry->d_name, NULL);
+        stat(file, &st);
 
-	if ((st.st_mode & S_IFDIR) == S_IFDIR) {
-	    if (depth_current >= depth)
-		break;
+        if ((st.st_mode & S_IFDIR) == S_IFDIR) {
+            if (depth_current >= depth)
+                break;
 
-	    file = apr_pstrcat(subpool, file, "/", NULL);
-	    caldav_send_calendar_props(file, depth, depth_current, bb, r,
-					conf, subpool, prop, p);
-	}
-	else if ((st.st_mode & S_IFREG) == S_IFREG) {
-	    dav_resource *resource = NULL;
-	    xmlNode *caldata = NULL, *child = NULL;
-	    caldav_search_t *p = NULL;
-	    request_rec *rf = apr_pcalloc(r->pool, sizeof(*rf));
+            file = apr_pstrcat(subpool, file, "/", NULL);
+            caldav_send_calendar_props(file, depth, depth_current, bb, r,
+                                        conf, subpool, prop, p);
+        }
+        else if ((st.st_mode & S_IFREG) == S_IFREG) {
+            dav_resource *resource = NULL;
+            xmlNode *caldata = NULL, *child = NULL;
+            caldav_search_t *p = NULL;
+            request_rec *rf = apr_pcalloc(r->pool, sizeof(*rf));
 
-	    rf->filename = file;
-	    apr_pool_create(&rf->pool, NULL);
-	    rf->uri = apr_pstrcat(rf->pool, r->uri, file + strlen(r->filename), NULL);
-	    rc = apr_stat(&rf->finfo, rf->filename, APR_FINFO_MIN, rf->pool);
+            rf->filename = file;
+            apr_pool_create(&rf->pool, NULL);
+            rf->uri = apr_pstrcat(rf->pool, r->uri, file + strlen(r->filename), NULL);
+            rc = apr_stat(&rf->finfo, rf->filename, APR_FINFO_MIN, rf->pool);
 
-	    if (rc == APR_SUCCESS && conf->provider->repos->
-			get_resource(rf, NULL, NULL, 0, &resource) == NULL) {
+            if (rc == APR_SUCCESS && conf->provider->repos->
+                        get_resource(rf, NULL, NULL, 0, &resource) == NULL) {
 
-		FOR_CHILD(caldata, prop) {
-		    if (NODE_NOT_CALDAV(caldata))
-			;
-		    else if (NODE_MATCH(caldata, "calendar-data"))
-			break;
-		}
-		child = prop ? prop->parent : NULL;
-		FOR_CHILD(child, child) {
-		    if (NODE_NOT_CALDAV(child))
-			;
-		    else if (NODE_MATCH(child, "filter"))
-			break;
-		}
+                FOR_CHILD(caldata, prop) {
+                    if (NODE_NOT_CALDAV(caldata))
+                        ;
+                    else if (NODE_MATCH(caldata, "calendar-data"))
+                        break;
+                }
+                child = prop ? prop->parent : NULL;
+                FOR_CHILD(child, child) {
+                    if (NODE_NOT_CALDAV(child))
+                        ;
+                    else if (NODE_MATCH(child, "filter"))
+                        break;
+                }
 
-		if (child &&
-			caldav_ical_search(rf->filename,
-					   caldav_timezone(rf, resource, conf),
-					   caldata, child->children, &p)) {
-		    caldav_init_multistatus(bb, r);
-		    caldav_send_props(*bb, r, rf, resource, subpool, p, prop);
-		}
-		caldav_ical_free(p);
-	    }
+                if (child &&
+                        caldav_ical_search(rf->filename,
+                                           caldav_timezone(rf, resource, conf),
+                                           caldata, child->children, &p)) {
+                    caldav_init_multistatus(bb, r);
+                    caldav_send_props(*bb, r, rf, resource, subpool, p, prop);
+                }
+                caldav_ical_free(p);
+            }
 
-	    apr_pool_destroy(rf->pool);
-	}
+            apr_pool_destroy(rf->pool);
+        }
     }
     closedir(dp);
 }
@@ -423,17 +423,17 @@ const char *caldav_ctag(request_rec *r)
     dav_acl_last_mtime(NULL, r, r->pool, 0);
 
     if (r->mtime) {
-	ctag = ap_make_etag(r, 0);
+        ctag = ap_make_etag(r, 0);
 
-	if (ctag && ctag[0] == '"')
-	    ctag++;
+        if (ctag && ctag[0] == '"')
+            ctag++;
 
-	if (ctag) {
-	    int c = strlen(ctag);
+        if (ctag) {
+            int c = strlen(ctag);
 
-	    if (c && ctag[c - 1] == '"')
-		ctag[c - 1] = 0;
-	}
+            if (c && ctag[c - 1] == '"')
+                ctag[c - 1] = 0;
+        }
     }
 
     return ctag;
@@ -456,38 +456,38 @@ static int caldav_dump(void (*dump_props)(const char *subdir, int depth,
     apr_pool_create(&subpool, r->pool);
 
     if (dump_props == caldav_send_calendar_props && conf->etag_response) {
-	const char *if_none_match;
+        const char *if_none_match;
 
-	dav_acl_last_mtime(NULL, r, subpool, 0);
+        dav_acl_last_mtime(NULL, r, subpool, 0);
 
-	if_none_match = apr_table_get(r->headers_in, "If-None-Match");
+        if_none_match = apr_table_get(r->headers_in, "If-None-Match");
 
-	if (if_none_match != NULL) {
-	    int cb = strlen(if_none_match);
-	    const char *etag = r->mtime ? ap_make_etag(r, 0) : NULL;
+        if (if_none_match != NULL) {
+            int cb = strlen(if_none_match);
+            const char *etag = r->mtime ? ap_make_etag(r, 0) : NULL;
 
-	    if ((strcmp(if_none_match, "*") == 0 && etag != NULL) ||
-		(if_none_match[0] == '"' && cb > 2 &&
-			if_none_match[cb - 1] == '"' &&
-			etag && strcmp(if_none_match, etag) == 0)) {
-		r->status_line = ap_get_status_line(r->status = 304);
-		apr_pool_destroy(subpool);
-		return 0;
-	    }
-	}
-	ap_set_etag(r);
+            if ((strcmp(if_none_match, "*") == 0 && etag != NULL) ||
+                (if_none_match[0] == '"' && cb > 2 &&
+                        if_none_match[cb - 1] == '"' &&
+                        etag && strcmp(if_none_match, etag) == 0)) {
+                r->status_line = ap_get_status_line(r->status = 304);
+                apr_pool_destroy(subpool);
+                return 0;
+            }
+        }
+        ap_set_etag(r);
     }
 
     dump_props(NULL, depth, 0, &bb, r, conf, subpool, node, p);
 
     if (bb) {
-	dav_finish_multistatus(r, bb);
+        dav_finish_multistatus(r, bb);
     }
     else {
-	if (dump_props == caldav_send_calendar_props)
-	    apr_table_unset(r->headers_out, "ETag");
+        if (dump_props == caldav_send_calendar_props)
+            apr_table_unset(r->headers_out, "ETag");
 
-	r->status_line = ap_get_status_line(r->status = 404);
+        r->status_line = ap_get_status_line(r->status = 404);
     }
     apr_pool_destroy(subpool);
 
@@ -508,53 +508,53 @@ static void caldav_send_free_busy(const char *subdir, int depth,
     DIR *dp;
     caldav_freebusy_t *freebusy = p;
     struct dirent entry[offsetof(struct dirent, d_name) +
-			pathconf(directory, _PC_NAME_MAX) + 1];
+                        pathconf(directory, _PC_NAME_MAX) + 1];
 
     depth_current++;
     if (depth_current > depth)
-	return;
+        return;
 
     for (dp = opendir(directory); dp; ) {
-	char *file;
-	struct dirent *res = NULL;
+        char *file;
+        struct dirent *res = NULL;
 
-	if (readdir_r(dp, entry, &res) != 0 || res == NULL)
-	    break;
+        if (readdir_r(dp, entry, &res) != 0 || res == NULL)
+            break;
 
-	/* no current/parent dir or hidden file == .* */
-	if (entry->d_name[0] == '.')
-	    continue;
+        /* no current/parent dir or hidden file == .* */
+        if (entry->d_name[0] == '.')
+            continue;
 
-	file = apr_pstrcat(subpool, directory, entry->d_name, NULL);
-	stat(file, &st);
+        file = apr_pstrcat(subpool, directory, entry->d_name, NULL);
+        stat(file, &st);
 
-	if ((st.st_mode & S_IFDIR) == S_IFDIR) {
-	    if (depth_current >= depth)
-		break;
+        if ((st.st_mode & S_IFDIR) == S_IFDIR) {
+            if (depth_current >= depth)
+                break;
 
-	    file = apr_pstrcat(subpool, file, "/", NULL);
-	    caldav_send_free_busy(file, depth, depth_current, bb, r, conf,
-				  subpool, prop, p);
-	}
-	else if ((st.st_mode & S_IFREG) == S_IFREG) {
-	    dav_resource *resource = NULL;
-	    request_rec *rf = apr_pcalloc(r->pool, sizeof(*rf));
+            file = apr_pstrcat(subpool, file, "/", NULL);
+            caldav_send_free_busy(file, depth, depth_current, bb, r, conf,
+                                  subpool, prop, p);
+        }
+        else if ((st.st_mode & S_IFREG) == S_IFREG) {
+            dav_resource *resource = NULL;
+            request_rec *rf = apr_pcalloc(r->pool, sizeof(*rf));
 
-	    rf->filename = file;
-	    apr_pool_create(&rf->pool, NULL);
-	    rf->uri = apr_pstrcat(rf->pool, r->uri,
-				  file + strlen(r->filename), NULL);
-	    rc = apr_stat(&rf->finfo, rf->filename, APR_FINFO_MIN, rf->pool);
+            rf->filename = file;
+            apr_pool_create(&rf->pool, NULL);
+            rf->uri = apr_pstrcat(rf->pool, r->uri,
+                                  file + strlen(r->filename), NULL);
+            rc = apr_stat(&rf->finfo, rf->filename, APR_FINFO_MIN, rf->pool);
 
-	    if (rc == APR_SUCCESS && conf->provider->repos->
-			get_resource(rf, NULL, NULL, 0, &resource) == NULL &&
-			caldav_freebusy_allowed(r, resource) == NULL)
-		caldav_ical_freebusy(rf->filename, freebusy->tz,
-					freebusy->start, freebusy->end,
-					freebusy->freebusy);
+            if (rc == APR_SUCCESS && conf->provider->repos->
+                        get_resource(rf, NULL, NULL, 0, &resource) == NULL &&
+                        caldav_freebusy_allowed(r, resource) == NULL)
+                caldav_ical_freebusy(rf->filename, freebusy->tz,
+                                        freebusy->start, freebusy->end,
+                                        freebusy->freebusy);
 
-	    apr_pool_destroy(rf->pool);
-	}
+            apr_pool_destroy(rf->pool);
+        }
     }
     closedir(dp);
 }
@@ -569,57 +569,57 @@ static void caldav_send_multiget(const char *subdir, int depth,
     xmlNode *node = NULL;
 
     if (prop == NULL) {
-	dav_handle_err(r, dav_new_error(r->pool, HTTP_NOT_FOUND, 0, APR_SUCCESS,
-					"Property <prop> not given"), NULL);
-	return;
+        dav_handle_err(r, dav_new_error(r->pool, HTTP_NOT_FOUND, 0, APR_SUCCESS,
+                                        "Property <prop> not given"), NULL);
+        return;
     }
     if (depth_current >= depth)
-	return;
+        return;
 
     FOR_CHILD(node, prop->parent) {
-	if (NODE_NOT_DAV(node)) {
-	    ;
-	}
-	else if (NODE_MATCH(node, "href")) {
-	    caldav_search_t *p = NULL;
-	    dav_resource *resource = NULL;
-	    request_rec *rf;
-	    dav_lookup_result lookup = { 0 };
-	    apr_uri_t uri = { 0 };
-	    xmlChar *pch = xmlNodeGetContent(node);
+        if (NODE_NOT_DAV(node)) {
+            ;
+        }
+        else if (NODE_MATCH(node, "href")) {
+            caldav_search_t *p = NULL;
+            dav_resource *resource = NULL;
+            request_rec *rf;
+            dav_lookup_result lookup = { 0 };
+            apr_uri_t uri = { 0 };
+            xmlChar *pch = xmlNodeGetContent(node);
 
-	    if (pch == NULL)
-		continue;
+            if (pch == NULL)
+                continue;
 
-	    rf = apr_pcalloc(r->pool, sizeof(*rf));
+            rf = apr_pcalloc(r->pool, sizeof(*rf));
 
-	    apr_pool_create(&rf->pool, NULL);
-	    apr_uri_parse(rf->pool, (char *) pch, &uri);
+            apr_pool_create(&rf->pool, NULL);
+            apr_uri_parse(rf->pool, (char *) pch, &uri);
 
-	    lookup = dav_lookup_uri((char *) pch, r, uri.scheme != NULL);
+            lookup = dav_lookup_uri((char *) pch, r, uri.scheme != NULL);
 
-	    if (lookup.rnew && lookup.rnew->status == HTTP_OK) {
-		rf->filename = lookup.rnew->filename;
-		rf->uri = lookup.rnew->uri;
+            if (lookup.rnew && lookup.rnew->status == HTTP_OK) {
+                rf->filename = lookup.rnew->filename;
+                rf->uri = lookup.rnew->uri;
 
-		rc = apr_stat(&rf->finfo, rf->filename, APR_FINFO_MIN, rf->pool);
+                rc = apr_stat(&rf->finfo, rf->filename, APR_FINFO_MIN, rf->pool);
 
-		if (rc == APR_SUCCESS &&
-			conf->provider->repos->get_resource(rf, NULL, NULL, 0,
-							    &resource) == NULL) {
-		    if (caldav_ical_search(rf->filename, NULL, NULL, NULL, &p)) {
-			caldav_init_multistatus(bb, r);
-			caldav_send_props(*bb, r, rf, resource, subpool, p, prop);
-		    }
-		    caldav_ical_free(p);
-		}
-	    }
-	    if (lookup.rnew)
-		ap_destroy_sub_req(lookup.rnew);
+                if (rc == APR_SUCCESS &&
+                        conf->provider->repos->get_resource(rf, NULL, NULL, 0,
+                                                            &resource) == NULL) {
+                    if (caldav_ical_search(rf->filename, NULL, NULL, NULL, &p)) {
+                        caldav_init_multistatus(bb, r);
+                        caldav_send_props(*bb, r, rf, resource, subpool, p, prop);
+                    }
+                    caldav_ical_free(p);
+                }
+            }
+            if (lookup.rnew)
+                ap_destroy_sub_req(lookup.rnew);
 
-	    apr_pool_destroy(rf->pool);
-	    xmlFree(pch);
-	}
+            apr_pool_destroy(rf->pool);
+            xmlFree(pch);
+        }
     }
 }
 
@@ -631,18 +631,18 @@ static int dav_process_ctx_list(void (*func)(dav_prop_ctx *ctx),
     dav_prop_ctx *ctx = (dav_prop_ctx *) ctx_list->elts;
 
     if (reverse)
-	ctx += i;
+        ctx += i;
 
     while (i--) {
-	if (reverse)
-	    --ctx;
+        if (reverse)
+            --ctx;
 
-	func (ctx);
-	if (stop_on_error && DAV_PROP_CTX_HAS_ERR(*ctx))
-	     return 1;
+        func (ctx);
+        if (stop_on_error && DAV_PROP_CTX_HAS_ERR(*ctx))
+             return 1;
 
-	if (!reverse)
-	     ++ctx;
+        if (!reverse)
+             ++ctx;
     }
 
     return 0;
@@ -674,160 +674,160 @@ static int caldav_mkcalendar(caldav_dir_cfg *conf, request_rec *r)
     dav_resource *resource = NULL;
     dav_error *err = NULL;
     const dav_prop_name privs[] = {
-	{ NS_DAV, "write" },
-	{ NS_DAV, "bind" } };
+        { NS_DAV, "write" },
+        { NS_DAV, "bind" } };
     dav_response *multi_status;
     int resource_state, result;
     apr_xml_doc *doc;
     dav_resource *parent = NULL;
 
     if (conf->provider == NULL)
-	return dav_handle_err(r, dav_new_error (r->pool, HTTP_FORBIDDEN, 0, APR_SUCCESS,
-			      "Directory path not configured, you need some "
-			      "caldav directives !"), NULL);
+        return dav_handle_err(r, dav_new_error (r->pool, HTTP_FORBIDDEN, 0, APR_SUCCESS,
+                              "Directory path not configured, you need some "
+                              "caldav directives !"), NULL);
 
     if ((err = conf->provider->repos->get_resource(r, NULL, NULL, 0, &resource)))
-	return dav_handle_err(r, err, NULL);
+        return dav_handle_err(r, err, NULL);
 
     if ((err = conf->provider->repos->get_parent_resource(resource, &parent)))
-	return dav_handle_err(r, err, NULL);
+        return dav_handle_err(r, err, NULL);
 
     if ((err = dav_acl_check(r, parent, ARRAY (privs))))
-	return dav_handle_err(r, err, NULL);
+        return dav_handle_err(r, err, NULL);
 
     if (resource->exists) {
-	err = dav_new_error(r->pool, HTTP_FORBIDDEN, 0, APR_SUCCESS, "Collection exists already");
-	err->tagname = "resource-must-be-null";
-	return dav_handle_err(r, err, NULL);
+        err = dav_new_error(r->pool, HTTP_FORBIDDEN, 0, APR_SUCCESS, "Collection exists already");
+        err->tagname = "resource-must-be-null";
+        return dav_handle_err(r, err, NULL);
     }
     resource_state = dav_get_resource_state(r, resource);
 
     err = dav_validate_request(r, resource, 0, NULL, &multi_status,
-				resource_state == DAV_RESOURCE_NULL ?
-				    DAV_VALIDATE_PARENT : DAV_VALIDATE_RESOURCE,
-				NULL);
+                                resource_state == DAV_RESOURCE_NULL ?
+                                    DAV_VALIDATE_PARENT : DAV_VALIDATE_RESOURCE,
+                                NULL);
     if (err != NULL)
-	/* ### add a higher-level description? */
-	return dav_handle_err(r, err, multi_status);
+        /* ### add a higher-level description? */
+        return dav_handle_err(r, err, multi_status);
 
     /* resource->collection = 1; */
     if ((err = resource->hooks->create_collection(resource)))
-	return dav_handle_err (r, err, NULL);
+        return dav_handle_err (r, err, NULL);
 
     if ((result = ap_xml_parse_input(r, &doc)) != OK) {
-	;
+        ;
     }
     else if (doc) {
-	dav_auto_version_info av_info;
-	dav_propdb *propdb;
-	dav_prop_ctx *ctx;
-	apr_xml_elem *child;
-	int failure = 0;
-	apr_array_header_t *ctx_list;
-	apr_text *propstat_text;
+        dav_auto_version_info av_info;
+        dav_propdb *propdb;
+        dav_prop_ctx *ctx;
+        apr_xml_elem *child;
+        int failure = 0;
+        apr_array_header_t *ctx_list;
+        apr_text *propstat_text;
 
-	/* make sure the resource can be modified (if versioning repository) */
-	if ((err = dav_auto_checkout(r, resource, 0 /* not parent_only */,
-				     &av_info)) != NULL) {
-	    /* ### add a higher-level description? */
-	    return dav_handle_err(r, err, NULL);
-	}
-	if ((err = dav_open_propdb(r, NULL, resource, 0, doc->namespaces,
-				   &propdb)) != NULL) {
-	    /* undo any auto-checkout */
-	    dav_auto_checkin(r, resource, 1 /*undo*/, 0 /*unlock*/, &av_info);
+        /* make sure the resource can be modified (if versioning repository) */
+        if ((err = dav_auto_checkout(r, resource, 0 /* not parent_only */,
+                                     &av_info)) != NULL) {
+            /* ### add a higher-level description? */
+            return dav_handle_err(r, err, NULL);
+        }
+        if ((err = dav_open_propdb(r, NULL, resource, 0, doc->namespaces,
+                                   &propdb)) != NULL) {
+            /* undo any auto-checkout */
+            dav_auto_checkin(r, resource, 1 /*undo*/, 0 /*unlock*/, &av_info);
 
-	    err = dav_push_error(r->pool, HTTP_INTERNAL_SERVER_ERROR, 0,
-			apr_psprintf(r->pool,
-				     "Could not open the property database for %s.",
-				     ap_escape_html(r->pool, r->uri)), err);
-	    return dav_handle_err(r, err, NULL);
-	}
-	/* ### what to do about closing the propdb on server failure? */
+            err = dav_push_error(r->pool, HTTP_INTERNAL_SERVER_ERROR, 0,
+                        apr_psprintf(r->pool,
+                                     "Could not open the property database for %s.",
+                                     ap_escape_html(r->pool, r->uri)), err);
+            return dav_handle_err(r, err, NULL);
+        }
+        /* ### what to do about closing the propdb on server failure? */
 
-	/* ### validate "live" properties */
+        /* ### validate "live" properties */
 
-	/* set up an array to hold property operation contexts */
-	ctx_list = apr_array_make(r->pool, 10, sizeof(dav_prop_ctx));
+        /* set up an array to hold property operation contexts */
+        ctx_list = apr_array_make(r->pool, 10, sizeof(dav_prop_ctx));
 
-	/* do a first pass to ensure that all "remove" properties exist */
-	for (child = doc->root->first_child; child; child = child->next) {
-	    apr_xml_elem *prop_group;
-	    apr_xml_elem *one_prop;
+        /* do a first pass to ensure that all "remove" properties exist */
+        for (child = doc->root->first_child; child; child = child->next) {
+            apr_xml_elem *prop_group;
+            apr_xml_elem *one_prop;
 
-	    /* Ignore children that are not set/remove */
-	    if (child->ns != APR_XML_NS_DAV_ID ||
-			strcmp(child->name, "set") != 0)
-		continue;
+            /* Ignore children that are not set/remove */
+            if (child->ns != APR_XML_NS_DAV_ID ||
+                        strcmp(child->name, "set") != 0)
+                continue;
 
-	    /* make sure that a "prop" child exists for set/remove */
-	    if ((prop_group = dav_find_child(child, "prop")) == NULL) {
-		dav_close_propdb(propdb);
+            /* make sure that a "prop" child exists for set/remove */
+            if ((prop_group = dav_find_child(child, "prop")) == NULL) {
+                dav_close_propdb(propdb);
 
-		/* undo any auto-checkout */
-		dav_auto_checkin(r, resource, 1 /*undo*/, 0 /*unlock*/, &av_info);
+                /* undo any auto-checkout */
+                dav_auto_checkin(r, resource, 1 /*undo*/, 0 /*unlock*/, &av_info);
 
-		/* This supplies additional information for the default message. */
-		ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
-			      "A \"prop\" element is missing inside "
-			      "the propertyupdate command.");
-		return HTTP_BAD_REQUEST;
-	    }
+                /* This supplies additional information for the default message. */
+                ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
+                              "A \"prop\" element is missing inside "
+                              "the propertyupdate command.");
+                return HTTP_BAD_REQUEST;
+            }
 
-	    for (one_prop = prop_group->first_child; one_prop;
-			one_prop = one_prop->next) {
+            for (one_prop = prop_group->first_child; one_prop;
+                        one_prop = one_prop->next) {
 
-		ctx = (dav_prop_ctx *) apr_array_push(ctx_list);
-		ctx->propdb = propdb;
-		ctx->operation = DAV_PROP_OP_SET;
-		ctx->prop = one_prop;
+                ctx = (dav_prop_ctx *) apr_array_push(ctx_list);
+                ctx->propdb = propdb;
+                ctx->operation = DAV_PROP_OP_SET;
+                ctx->prop = one_prop;
 
-		ctx->r = r;	/* for later use by dav_prop_log_errors() */
+                ctx->r = r;        /* for later use by dav_prop_log_errors() */
 
-		dav_prop_validate(ctx);
+                dav_prop_validate(ctx);
 
-		if (DAV_PROP_CTX_HAS_ERR(*ctx))
-		    failure = 1;
-	    }
-	}
-	/* ### should test that we found at least one set/remove */
+                if (DAV_PROP_CTX_HAS_ERR(*ctx))
+                    failure = 1;
+            }
+        }
+        /* ### should test that we found at least one set/remove */
 
-	/* execute all of the operations */
-	if (!failure && dav_process_ctx_list(dav_prop_exec, ctx_list, 1, 0))
-	    failure = 1;
+        /* execute all of the operations */
+        if (!failure && dav_process_ctx_list(dav_prop_exec, ctx_list, 1, 0))
+            failure = 1;
 
-	/* generate a failure/success response */
-	if (failure) {
-	    dav_process_ctx_list(dav_prop_rollback, ctx_list, 0, 1);
-	    propstat_text = dav_failed_proppatch(r->pool, ctx_list);
-	}
-	else {
-	    dav_process_ctx_list(dav_prop_commit, ctx_list, 0, 0);
-	    /* propstat_text = dav_success_proppatch(r->pool, ctx_list); */
-	}
-	/* make sure this gets closed! */
-	dav_close_propdb(propdb);
+        /* generate a failure/success response */
+        if (failure) {
+            dav_process_ctx_list(dav_prop_rollback, ctx_list, 0, 1);
+            propstat_text = dav_failed_proppatch(r->pool, ctx_list);
+        }
+        else {
+            dav_process_ctx_list(dav_prop_commit, ctx_list, 0, 0);
+            /* propstat_text = dav_success_proppatch(r->pool, ctx_list); */
+        }
+        /* make sure this gets closed! */
+        dav_close_propdb(propdb);
 
-	/* complete any auto-versioning */
-	dav_auto_checkin(r, resource, failure, 0 /*unlock*/, &av_info);
+        /* complete any auto-versioning */
+        dav_auto_checkin(r, resource, failure, 0 /*unlock*/, &av_info);
 
-	/* log any errors that occurred */
-	dav_process_ctx_list(caldav_prop_log_errors, ctx_list, 0, 0);
+        /* log any errors that occurred */
+        dav_process_ctx_list(caldav_prop_log_errors, ctx_list, 0, 0);
 
-	if (failure) {
-	    dav_response resp = { 0 };
+        if (failure) {
+            dav_response resp = { 0 };
 
-	    resp.href = resource->uri;
+            resp.href = resource->uri;
 
-	    /* ### should probably use something new to pass along this text... */
-	    resp.propresult.propstats = propstat_text;
+            /* ### should probably use something new to pass along this text... */
+            resp.propresult.propstats = propstat_text;
 
-	    dav_send_multistatus(r, HTTP_MULTI_STATUS, &resp, doc->namespaces);
-	    return DONE;
-	}
+            dav_send_multistatus(r, HTTP_MULTI_STATUS, &resp, doc->namespaces);
+            return DONE;
+        }
     }
     if ((resource->acls = dav_get_acl_providers("acl")))
-	resource->acls->acl_post_processing(r, resource, 1);
+        resource->acls->acl_post_processing(r, resource, 1);
 
     caldav_store_resource_type(r, resource);
 
@@ -849,20 +849,20 @@ static void free_busy(caldav_dir_cfg *conf, request_rec *r,
     char *pch;
 
     FOR_CHILD(child, node) {
-	if (NODE_NOT_CALDAV(child)) {
-	    ;
-	}
-	else if (NODE_MATCH(child, "time-range"))  {
-	    caldav_ical_timerange(child, &start, &end);
-	    break;
-	}
+        if (NODE_NOT_CALDAV(child)) {
+            ;
+        }
+        else if (NODE_MATCH(child, "time-range"))  {
+            caldav_ical_timerange(child, &start, &end);
+            break;
+        }
     }
     vcalendar = icalcomponent_new(ICAL_VCALENDAR_COMPONENT);
 
     icalcomponent_add_property(vcalendar, icalproperty_new_version("2.0"));
 
     icalcomponent_add_property(vcalendar,
-			icalproperty_new_prodid("-//Nokia//Test server//EN"));
+                        icalproperty_new_prodid("-//Nokia//Test server//EN"));
 
     vfreebusy = icalcomponent_new(ICAL_VFREEBUSY_COMPONENT);
     icalcomponent_add_property(vfreebusy, icalproperty_new_dtstamp(start));
@@ -901,81 +901,81 @@ static int caldav_report(caldav_dir_cfg *conf, request_rec *r)
 
     /* acl checks on individual reports */
     if (conf->provider == NULL)
-	return dav_handle_err(r,
-		dav_new_error(r->pool, HTTP_FORBIDDEN, 0, APR_SUCCESS,
-			      "Directory path not configured, you need some "
-			      "caldav directives !"), NULL);
+        return dav_handle_err(r,
+                dav_new_error(r->pool, HTTP_FORBIDDEN, 0, APR_SUCCESS,
+                              "Directory path not configured, you need some "
+                              "caldav directives !"), NULL);
 
     if ((err = conf->provider->repos->get_resource(r, NULL, NULL, 0, &resource)))
-	return dav_handle_err(r, err, NULL);
+        return dav_handle_err(r, err, NULL);
 
     /* read the body content from the buffer if it was consumed already by
      * another client */
     for (inf = r->input_filters; inf; inf = inf->next) {
-	if (inf->frec && inf->frec->name &&
-		!strcmp(inf->frec->name, CALDAV_FILTER)) {
-	    dav_acl_input_filter_t *f = inf->ctx;
+        if (inf->frec && inf->frec->name &&
+                !strcmp(inf->frec->name, CALDAV_FILTER)) {
+            dav_acl_input_filter_t *f = inf->ctx;
 
-	    if (f && f->r == r) {
-		inf->ctx = NULL;
-		buffer = &f->buffer;
-		ap_remove_input_filter(inf);
-		break;
-	    }
-	}
+            if (f && f->r == r) {
+                inf->ctx = NULL;
+                buffer = &f->buffer;
+                ap_remove_input_filter(inf);
+                break;
+            }
+        }
     }
     if (buffer == NULL)   /* internal error */
-	return DECLINED;
+        return DECLINED;
 
     if (buffer->cur_len == 0)
-	rc = dav_acl_read_body(r, buffer);
+        rc = dav_acl_read_body(r, buffer);
 
     if (rc < 0 || !(doc = xmlReadMemory(buffer->buf, buffer->cur_len,
-					NULL, NULL, XML_PARSE_NOWARNING)))
-	return DECLINED;
+                                        NULL, NULL, XML_PARSE_NOWARNING)))
+        return DECLINED;
 
     for (node = doc->children; node; node = node->next) {
-	int query;
+        int query;
 
-	if (NODE_NOT_CALDAV(node)) {
-	    if (node->type == XML_ELEMENT_NODE) {
-		xmlFreeDoc(doc);
-		return DECLINED;
-	    }
-	}
-	else if ((query = NODE_MATCH(node, "calendar-query")) ||
-		     (NODE_MATCH(node, "calendar-multiget"))) {
-	    xmlNode *child = NULL;
+        if (NODE_NOT_CALDAV(node)) {
+            if (node->type == XML_ELEMENT_NODE) {
+                xmlFreeDoc(doc);
+                return DECLINED;
+            }
+        }
+        else if ((query = NODE_MATCH(node, "calendar-query")) ||
+                     (NODE_MATCH(node, "calendar-multiget"))) {
+            xmlNode *child = NULL;
 
-	    if ((depth = dav_get_depth(r, 0)) < 0)
-		goto error;
+            if ((depth = dav_get_depth(r, 0)) < 0)
+                goto error;
 
-	    FOR_CHILD(child, node) {
-		if (NODE_NOT_DAV(child))
-		    ;
-		else if (NODE_MATCH(child, "prop"))
-		    break;
-	    }
+            FOR_CHILD(child, node) {
+                if (NODE_NOT_DAV(child))
+                    ;
+                else if (NODE_MATCH(child, "prop"))
+                    break;
+            }
 
-	    caldav_dump(query ? caldav_send_calendar_props : caldav_send_multiget,
-			resource, r, conf, child, depth, NULL);
-	    break;
-	}
-	else if (NODE_MATCH(node, "free-busy-query")) {
-	    if ((depth = dav_get_depth(r, 0)) < 0)
-		goto error;
+            caldav_dump(query ? caldav_send_calendar_props : caldav_send_multiget,
+                        resource, r, conf, child, depth, NULL);
+            break;
+        }
+        else if (NODE_MATCH(node, "free-busy-query")) {
+            if ((depth = dav_get_depth(r, 0)) < 0)
+                goto error;
 
-	    free_busy(conf, r, resource, depth, node);
-	    break;
-	}
-	else if (node->type == XML_ELEMENT_NODE) {
-	    xmlFreeDoc(doc);
-	    return DECLINED;
-	}
+            free_busy(conf, r, resource, depth, node);
+            break;
+        }
+        else if (node->type == XML_ELEMENT_NODE) {
+            xmlFreeDoc(doc);
+            return DECLINED;
+        }
     }
     if (node == NULL) {
-	xmlFreeDoc(doc);
-	return DECLINED;
+        xmlFreeDoc(doc);
+        return DECLINED;
     }
 
     apr_table_setn(r->headers_out, "Cache-Control", "no-cache");
@@ -985,7 +985,7 @@ static int caldav_report(caldav_dir_cfg *conf, request_rec *r)
 error:
     xmlFreeDoc(doc);
     err = dav_new_error(r->pool, HTTP_BAD_REQUEST, 0, APR_SUCCESS,
-			"Depth-header value incorrect");
+                        "Depth-header value incorrect");
     return dav_handle_err(r, err, NULL);
 }
 
@@ -997,17 +997,17 @@ static int caldav_handler(request_rec *r)
         ap_get_module_config(r->server->module_config, &caldav_module);
 #endif
     caldav_dir_cfg *conf = ap_get_module_config(r->per_dir_config,
-						&caldav_module);
+                                                &caldav_module);
 
     if (conf == NULL || conf->provider == NULL)
-	return DECLINED;
+        return DECLINED;
 
     if (r->method_number == iM_MKCALENDAR)
-	return caldav_mkcalendar(conf, r);
+        return caldav_mkcalendar(conf, r);
     else if (r->method_number == M_REPORT)
-	return caldav_report(conf, r);
+        return caldav_report(conf, r);
     else
-	return DECLINED;
+        return DECLINED;
 }
 
 static void caldav_initialize_child(apr_pool_t *p, server_rec *s)
@@ -1028,9 +1028,9 @@ static int caldav_initialize_module(apr_pool_t *p, apr_pool_t *plog,
      */
     apr_pool_userdata_get(&data, key, s->process->pool);
     if (data == NULL) {
-	apr_pool_userdata_set((const void *) 1, key,
-			      apr_pool_cleanup_null, s->process->pool);
-	return OK;
+        apr_pool_userdata_set((const void *) 1, key,
+                              apr_pool_cleanup_null, s->process->pool);
+        return OK;
     }
 
     /* Register CalDAV methods */
@@ -1079,14 +1079,14 @@ static int caldav_get_resource_type(const dav_resource *resource,
 {
     request_rec *r = resource->hooks->get_request_rec(resource);
     caldav_dir_cfg *conf = ap_get_module_config(r->per_dir_config,
-						&caldav_module);
+                                                &caldav_module);
     dav_prop_name prop = { "DAV:", "resourcetype" };
     const char *pch = dav_acl_get_prop(r, resource, conf->provider, &prop);
 
     if (pch && strstr(pch, "calendar")) {
-	*name = "calendar";
-	*uri = NS_CALDAV;
-	return 0;
+        *name = "calendar";
+        *uri = NS_CALDAV;
+        return 0;
     }
     *name = *uri = NULL;
     return -1;
@@ -1106,10 +1106,10 @@ res_hooks =
 static void caldav_add_input_filter(request_rec *r)
 {
     if (r->method_number == M_REPORT) {
-	dav_acl_input_filter_t *f = apr_pcalloc(r->pool, sizeof(*f));
+        dav_acl_input_filter_t *f = apr_pcalloc(r->pool, sizeof(*f));
 
-	f->r = r;
-	ap_add_input_filter(CALDAV_FILTER, f, r, r->connection);
+        f->r = r;
+        ap_add_input_filter(CALDAV_FILTER, f, r, r->connection);
     }
 }
 
@@ -1146,12 +1146,12 @@ static void caldav_register_hooks(apr_pool_t *p)
 module AP_MODULE_DECLARE_DATA caldav_module =
 {
     STANDARD20_MODULE_STUFF,
-    caldav_create_dir_config,		/* per-directory config creator */
-    NULL,				/* dir config merger */
-    caldav_create_server_config,	/* server config creator */
-    NULL,				/* server config merger */
-    caldav_cmds,			/* command table */
-    caldav_register_hooks,		/* set up other request processing hooks */
+    caldav_create_dir_config,                /* per-directory config creator */
+    NULL,                                /* dir config merger */
+    caldav_create_server_config,        /* server config creator */
+    NULL,                                /* server config merger */
+    caldav_cmds,                        /* command table */
+    caldav_register_hooks,                /* set up other request processing hooks */
 };
 
-	int depth;
+        int depth;

@@ -25,20 +25,20 @@
 #define _CALDAV_ICAL_H_
 
 void caldav_ical_freebusy(const char *file,
-			  const icaltimezone *tz,
-			  icaltimetype start,
-			  icaltimetype end,
-			  icalcomponent *freebusy);
+                          const icaltimezone *tz,
+                          icaltimetype start,
+                          icaltimetype end,
+                          icalcomponent *freebusy);
 
 int caldav_ical_timerange(xmlNodePtr child,
-			  icaltimetype *pstart,
-			  icaltimetype *pend);
+                          icaltimetype *pstart,
+                          icaltimetype *pend);
 
 int caldav_ical_search(const char *file,
-			const icaltimezone *tz,
-			xmlNodePtr caldata,
-			xmlNodePtr filter,
-			caldav_search_t **p);
+                        const icaltimezone *tz,
+                        xmlNodePtr caldata,
+                        xmlNodePtr filter,
+                        caldav_search_t **p);
 
 char *caldav_ical_dump(caldav_search_t *p);
 int caldav_ical_free(caldav_search_t *p);
